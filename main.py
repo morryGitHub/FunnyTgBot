@@ -132,9 +132,10 @@ def grow_penis(message):
     result = cursor.fetchone()
     if result:
         score, last_used = result
+        waiting_time = 43200
         # Если команда уже использовалась, и прошло меньше 24 часов
-        if last_used is not None and now - last_used < 43200:
-            remaining = 86400 - (now - last_used)
+        if last_used is not None and now - last_used < waiting_time:
+            remaining = waiting_time - (now - last_used)
             hours = remaining // 3600
             minutes = (remaining % 3600) // 60
             bot.reply_to(message,
