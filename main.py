@@ -85,7 +85,7 @@ def show_global_top(message):
         bot.reply_to(message, "🚫 Ошибка подключения к базе данных.")
         return
 
-    cursor.execute("SELECT * FROM info ORDER BY score DESC")
+    cursor.execute("SELECT DISTINCT * FROM info ORDER BY score DESC")
     rows = cursor.fetchall()
     conn.close()
 
@@ -132,7 +132,7 @@ def grow_penis(message):
     result = cursor.fetchone()
     if result:
         score, last_used = result
-        waiting_time = 43200
+        waiting_time = 43200  # 12 hours
         # Если команда уже использовалась, и прошло меньше 24 часов
         if last_used is not None and now - last_used < waiting_time:
             remaining = waiting_time - (now - last_used)
