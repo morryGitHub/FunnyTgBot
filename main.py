@@ -122,7 +122,8 @@ def show_chat_top(message):
 
 def show_table(table):
     return "\n".join(
-        [f"{reward(i + 1)} {i + 1}. <b>{row[0]}</b> {"🠙" if row[1] > 0 else "🠛"} <b>{row[1]} см</b>" for i, row in enumerate(table)])
+        [f"{reward(i + 1)} {i + 1}. <b>{row[0]}</b>: {"" if row[1] > 0 else "-"} <b>{row[1]} см</b>" for i, row in enumerate(table)])
+    # [f"{reward(i + 1)} {i + 1}. <b>{row[0]}</b> {"🠙" if row[1] > 0 else "🠛"} <b>{row[1]} см</b>" for i, row in enumerate(table)])
 
 
 @bot.message_handler(commands=['dick', 'penis'])
