@@ -186,7 +186,7 @@ def handle_confirmation(call):
 
 
 def reward(place):
-    return ["🥇", "🥈", "🥉", "🏆", "🎗"][min(place - 1, 4)]
+    return ["🥇", "🥈", "🥉", "🎗"][min(place - 1, 3)]
 
 
 bot.polling(none_stop=True)
