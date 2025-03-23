@@ -1,0 +1,4 @@
+python-telegram-bot
+telebot~=0.0.5
+dotenv~=0.9.9
+
