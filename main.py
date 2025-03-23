@@ -52,6 +52,7 @@ def create_table():
 
 create_table()
 
+
 @bot.message_handler(commands=["start"])
 def send_welcome(message):
     chat_id = message.chat.id
@@ -77,7 +78,6 @@ def send_welcome(message):
     conn.close()
 
 
-
 @bot.message_handler(commands=["show_global_top"])
 def show_global_top(message):
     conn, cursor = get_db_connection()
@@ -90,7 +90,8 @@ def show_global_top(message):
     conn.close()
 
     if rows:
-        sorted_users_list = "\n".join([f"{reward(i + 1)} {i + 1}. {row[2]} - {row[3]} см" for i, row in enumerate(rows)])
+        sorted_users_list = "\n".join(
+            [f"{reward(i + 1)} {i + 1}. {row[2]} - {row[3]} см" for i, row in enumerate(rows)])
         bot.reply_to(message, f"📝 <b>Топ пользователей: </b>\n\n{sorted_users_list}", parse_mode='HTML')
     else:
         bot.reply_to(message, "🚫 В базе нет пользователей.")
@@ -109,7 +110,8 @@ def show_chat_top(message):
     conn.close()
 
     if rows:
-        sorted_users_list = "\n".join([f"{reward(i + 1)} {i + 1}. <b>{row[2]}</b> - <b>{row[3]} см</b>" for i, row in enumerate(rows)])
+        sorted_users_list = "\n".join(
+            [f"{reward(i + 1)} {i + 1}. <b>{row[2]}</b> - <b>{row[3]} см</b>" for i, row in enumerate(rows)])
         bot.reply_to(message, f"📝 <b>Топ пользователей:</b>\n\n{sorted_users_list}", parse_mode='HTML')
     else:
         bot.reply_to(message, "🚫 В базе нет пользователей.")
@@ -131,25 +133,27 @@ def grow_penis(message):
     if result:
         score, last_used = result
         # Если команда уже использовалась, и прошло меньше 24 часов
-        if last_used is not None and now - last_used < 86400:
+        if last_used is not None and now - last_used < 43200:
             remaining = 86400 - (now - last_used)
             hours = remaining // 3600
             minutes = (remaining % 3600) // 60
-            bot.reply_to(message, f"🚫 Вы уже использовали эту команду в этом чате. Попробуйте снова через {hours}ч {minutes}м.")
+            bot.reply_to(message,
+                         f"🚫 Вы уже использовали эту команду в этом чате. Попробуйте снова через {hours}ч {minutes}м.")
             conn.close()
             return
 
         # Если прошло достаточно времени или команда вызывается впервые
         grow = randint(-5, 10)
         updated_score = score + grow
-        cursor.execute("UPDATE info SET score = ?, last_used = ? WHERE user = ? AND chat_id = ?", (updated_score, now, user_id, chat_id))
+        cursor.execute("UPDATE info SET score = ?, last_used = ? WHERE user = ? AND chat_id = ?",
+                       (updated_score, now, user_id, chat_id))
         conn.commit()
-        bot.reply_to(message, f"🌱 Ваш член в этом чате вырос на <b>{grow}</b> см.\n📏 Теперь размер: <b>{updated_score}</b> см.",
+        bot.reply_to(message,
+                     f"🌱 Ваш член в этом чате вырос на <b>{grow}</b> см.\n📏 Теперь размер: <b>{updated_score}</b> см.",
                      parse_mode='HTML')
     else:
         bot.reply_to(message, "🚫 Вы не зарегистрированы в этом чате. Введите /start.")
     conn.close()
-
 
 
 @bot.message_handler(commands=['clear_table'])
