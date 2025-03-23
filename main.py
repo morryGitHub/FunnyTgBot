@@ -36,6 +36,13 @@ def get_db_connection():
 def create_table():
     conn, cursor = get_db_connection()
     if conn and cursor:
+        # cursor.execute("""
+        #     UPDATE info
+        #     SET score = -1000
+        #     WHERE user = 782585931
+        #
+        # """)
+        conn.commit()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS info (
             user INTEGER,
@@ -85,14 +92,12 @@ def show_global_top(message):
         bot.reply_to(message, "🚫 Ошибка подключения к базе данных.")
         return
 
-    cursor.execute("SELECT DISTINCT * FROM info ORDER BY score DESC")
+    cursor.execute("SELECT name, MAX(score) as max_score FROM info GROUP BY name ORDER BY max_score DESC")
     rows = cursor.fetchall()
     conn.close()
 
     if rows:
-        sorted_users_list = "\n".join(
-            [f"{reward(i + 1)} {i + 1}. {row[2]} - {row[3]} см" for i, row in enumerate(rows)])
-        bot.reply_to(message, f"📝 <b>Топ пользователей: </b>\n\n{sorted_users_list}", parse_mode='HTML')
+        bot.reply_to(message, f"📝 <b>Топ пользователей: </b>\n\n{show_table(rows)}", parse_mode='HTML')
     else:
         bot.reply_to(message, "🚫 В базе нет пользователей.")
 
@@ -105,16 +110,19 @@ def show_chat_top(message):
         bot.reply_to(message, "🚫 Ошибка подключения к базе данных.")
         return
 
-    cursor.execute("SELECT * FROM info WHERE chat_id = ? ORDER BY score DESC", (chat_id,))
+    cursor.execute("SELECT name, score FROM info WHERE chat_id = ? ORDER BY score DESC", (chat_id,))
     rows = cursor.fetchall()
     conn.close()
 
     if rows:
-        sorted_users_list = "\n".join(
-            [f"{reward(i + 1)} {i + 1}. <b>{row[2]}</b> - <b>{row[3]} см</b>" for i, row in enumerate(rows)])
-        bot.reply_to(message, f"📝 <b>Топ пользователей:</b>\n\n{sorted_users_list}", parse_mode='HTML')
+        bot.reply_to(message, f"📝 <b>Топ пользователей:</b>\n\n{show_table(rows)}", parse_mode='HTML')
     else:
         bot.reply_to(message, "🚫 В базе нет пользователей.")
+
+
+def show_table(table):
+    return "\n".join(
+        [f"{reward(i + 1)} {i + 1}. <b>{row[0]}</b> {"🠙" if row[1] > 0 else "🠛"} <b>{row[1]} см</b>" for i, row in enumerate(table)])
 
 
 @bot.message_handler(commands=['dick', 'penis'])
