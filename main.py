@@ -1,6 +1,9 @@
 import os
+import shutil
 import sqlite3
 import time
+from datetime import datetime
+
 import telebot
 import logging
 
@@ -60,6 +63,32 @@ def create_table():
 create_table()
 
 
+def backup_database_sqlite():
+    """Создание резервной копии базы данных."""
+    original_db_path = 'dick_bot.db'  # Исходный путь к базе данных
+
+    # Папка для резервных копий
+    backup_dir = fr'{backup_dir}'
+
+    # Создаем директорию для резервных копий, если её нет
+    if not os.path.exists(backup_dir):
+        os.makedirs(backup_dir)
+
+    # Формируем имя файла резервной копии с меткой времени
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    backup_db_path = os.path.join(backup_dir, f'dick_bot_backup_{timestamp}.db')
+
+    try:
+        # Копируем файл базы данных
+        shutil.copy(original_db_path, backup_db_path)
+        print(f"Резервная копия базы данных сохранена в: {backup_db_path}")
+    except Exception as e:
+        print(f"Ошибка при создании резервной копии: {e}")
+
+
+backup_database_sqlite()
+
+
 @bot.message_handler(commands=["start"])
 def send_welcome(message):
     chat_id = message.chat.id
@@ -75,12 +104,12 @@ def send_welcome(message):
     cursor.execute("SELECT chat_id FROM info WHERE user = ? AND chat_id = ?", (user_id, chat_id))
     if cursor.fetchone():
         # Если пользователь уже есть в базе в этом чате, просто отправляем приветственное сообщение
-        bot.reply_to(message, "👤 Вы уже зарегистрированы в этом чате! \dick")
+        bot.reply_to(message, "👤 Вы уже зарегистрированы в этом чате!" + r'\dick')
     else:
         # Если пользователя нет в базе для этого чата, добавляем его
         cursor.execute("INSERT INTO info (chat_id, user, name) VALUES (?, ?, ?)", (chat_id, user_id, user_fullname))
         conn.commit()
-        bot.reply_to(message, f"🎉 Привет, {user_fullname}! Вы добавлены в базу данных этого чата. \dick ")
+        bot.reply_to(message, f"🎉 Привет, {user_fullname}!" + r"Вы добавлены в базу данных этого чата. \dick")
 
     conn.close()
 
