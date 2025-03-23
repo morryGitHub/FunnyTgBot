@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 CREATOR = int(os.getenv("CREATOR_ID"))
+BACKUP = os.getenv("backup_dir")
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -68,7 +69,7 @@ def backup_database_sqlite():
     original_db_path = 'dick_bot.db'  # Исходный путь к базе данных
 
     # Папка для резервных копий
-    backup_dir = fr'{backup_dir}'
+    backup_dir = f'{BACKUP}'
 
     # Создаем директорию для резервных копий, если её нет
     if not os.path.exists(backup_dir):
