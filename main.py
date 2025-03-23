@@ -105,12 +105,12 @@ def send_welcome(message):
     cursor.execute("SELECT chat_id FROM info WHERE user = ? AND chat_id = ?", (user_id, chat_id))
     if cursor.fetchone():
         # Если пользователь уже есть в базе в этом чате, просто отправляем приветственное сообщение
-        bot.reply_to(message, "👤 Вы уже зарегистрированы в этом чате!" + r'\dick')
+        bot.reply_to(message, "👤 Вы уже зарегистрированы в этом чате!" + r'/dick')
     else:
         # Если пользователя нет в базе для этого чата, добавляем его
         cursor.execute("INSERT INTO info (chat_id, user, name) VALUES (?, ?, ?)", (chat_id, user_id, user_fullname))
         conn.commit()
-        bot.reply_to(message, f"🎉 Привет, {user_fullname}!" + r"Вы добавлены в базу данных этого чата. \dick")
+        bot.reply_to(message, f"🎉 Привет, {user_fullname}!" + r"Вы добавлены в базу данных этого чата. /dick")
 
     conn.close()
 
