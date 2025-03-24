@@ -47,12 +47,6 @@ def get_db_connection():
 def create_table():
     conn, cursor = get_db_connection()
     if conn and cursor:
-        # cursor.execute("""
-        #     UPDATE info
-        #     SET score = -1000
-        #     WHERE user = 782585931
-        #
-        # """)
         conn.commit()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS info (
@@ -66,20 +60,6 @@ def create_table():
         """)
         conn.commit()
         conn.close()
-
-
-# Функция для подключения к SQLite
-def get_db_connection():
-    attempts = 5
-    while attempts > 0:
-        try:
-            conn = sqlite3.connect('dick_bot.db')  # Путь к вашему SQLite файлу
-            return conn, conn.cursor()
-        except sqlite3.OperationalError as e:
-            logging.error(f"Ошибка подключения к БД: {e}")
-            time.sleep(1)
-            attempts -= 1
-    return None, None
 
 
 # Функция для подключения к MySQL
@@ -164,7 +144,6 @@ def migrate_sqlite_to_mysql():
         print("Ошибка подключения к MySQL.")
 
 
-
 def backup_database_sqlite():
     """Создание резервной копии базы данных."""
     original_db_path = 'dick_bot.db'  # Исходный путь к базе данных
@@ -198,7 +177,6 @@ def send_welcome(message):
     user_fullname = message.from_user.full_name or message.from_user.username
 
     # Вызов миграции при запуске
-
 
     conn, cursor = get_db_connection()
     if not conn:
@@ -304,7 +282,6 @@ def grow_penis(message):
         bot.reply_to(message, "🚫 Вы не зарегистрированы в этом чате. Введите /start.")
 
     conn.close()
-
 
 
 @bot.message_handler(commands=['clear_table'])
