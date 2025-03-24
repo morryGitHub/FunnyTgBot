@@ -1,11 +1,13 @@
-import os
-import shutil
 import sqlite3
+import mysql.connector
+from urllib.parse import urlparse
+import os
 import time
 from datetime import datetime
-
-import telebot
+import shutil
 import logging
+import telebot
+import threading
 
 from random import randint
 from telebot import types
@@ -21,6 +23,11 @@ BACKUP = os.getenv("backup_dir")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 bot = telebot.TeleBot(TOKEN)
+
+
+def migrate_sqlite_to_mysql_in_background():
+    """Асинхронное выполнение миграции"""
+    threading.Thread(target=migrate_sqlite_to_mysql).start()
 
 
 def get_db_connection():
@@ -61,7 +68,101 @@ def create_table():
         conn.close()
 
 
-create_table()
+# Функция для подключения к SQLite
+def get_db_connection():
+    attempts = 5
+    while attempts > 0:
+        try:
+            conn = sqlite3.connect('dick_bot.db')  # Путь к вашему SQLite файлу
+            return conn, conn.cursor()
+        except sqlite3.OperationalError as e:
+            logging.error(f"Ошибка подключения к БД: {e}")
+            time.sleep(1)
+            attempts -= 1
+    return None, None
+
+
+# Функция для подключения к MySQL
+def get_mysql_connection():
+    mysql_url = 'mysql://root:xKIHWqWQNqdTxgkuDSRHyeDLsFGalCYe@caboose.proxy.rlwy.net:18935/railway'
+    parsed_url = urlparse(mysql_url)
+
+    db_config = {
+        'host': parsed_url.hostname,
+        'port': parsed_url.port,
+        'user': parsed_url.username,
+        'password': parsed_url.password,
+        'database': parsed_url.path[1:]
+    }
+
+    try:
+        connection = mysql.connector.connect(**db_config)
+        return connection, connection.cursor()
+    except mysql.connector.Error as err:
+        logging.error(f"Ошибка подключения к MySQL: {err}")
+        return None, None
+
+
+# Функция для миграции данных из SQLite в MySQL
+def migrate_sqlite_to_mysql():
+    # Создание таблицы в SQLite, если она не существует
+    create_table()
+
+    # 1. Извлечение данных из SQLite
+    sqlite_conn, sqlite_cursor = get_db_connection()
+    if sqlite_conn and sqlite_cursor:
+        try:
+            sqlite_cursor.execute("SELECT user, chat_id, name, score, last_used FROM info")
+            rows = sqlite_cursor.fetchall()
+            sqlite_conn.close()
+        except sqlite3.OperationalError as e:
+            logging.error(f"Ошибка при извлечении данных из SQLite: {e}")
+            return
+
+    # 2. Подключение к MySQL и вставка данных
+    mysql_conn, mysql_cursor = get_mysql_connection()
+    if mysql_conn and mysql_cursor:
+        # Создание таблицы в MySQL (если не существует)
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS info (
+            user BIGINT,
+            chat_id BIGINT,
+            name TEXT,
+            score INT DEFAULT 0,
+            last_used INTEGER DEFAULT NULL,
+            PRIMARY KEY (user, chat_id)
+        );
+        """
+        mysql_cursor.execute(create_table_query)
+        mysql_conn.commit()
+
+        # Вставка данных из SQLite в MySQL
+        insert_query = """
+        INSERT INTO info (user, chat_id, name, score, last_used) 
+        VALUES (%s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE 
+            name = VALUES(name),
+            score = VALUES(score),
+            last_used = VALUES(last_used);
+        """
+
+        for row in rows:
+            # Проверка, чтобы значение chat_id было в допустимом диапазоне
+            chat_id = row[1]
+            if abs(chat_id) > 9223372036854775807:
+                logging.warning(f"Значение chat_id {chat_id} слишком велико и будет пропущено.")
+                continue  # Пропустить эту запись
+
+            mysql_cursor.execute(insert_query, row)
+
+        mysql_conn.commit()
+        mysql_cursor.close()
+        mysql_conn.close()
+
+        print("Данные успешно вставлены в MySQL на Railway!")
+    else:
+        print("Ошибка подключения к MySQL.")
+
 
 
 def backup_database_sqlite():
@@ -96,6 +197,9 @@ def send_welcome(message):
     user_id = message.from_user.id
     user_fullname = message.from_user.full_name or message.from_user.username
 
+    # Вызов миграции при запуске
+
+
     conn, cursor = get_db_connection()
     if not conn:
         bot.reply_to(message, "🚫 Ошибка подключения к базе данных.")
@@ -108,10 +212,12 @@ def send_welcome(message):
         bot.reply_to(message, "👤 Вы уже зарегистрированы в этом чате! " + r'/dick')
     else:
         # Если пользователя нет в базе для этого чата, добавляем его
-        cursor.execute("INSERT INTO info (chat_id, user, name) VALUES (?, ?, ?)", (chat_id, user_id, user_fullname))
+        cursor.execute("INSERT OR IGNORE INTO info (chat_id, user, name) VALUES (?, ?, ?)",
+                       (chat_id, user_id, user_fullname))
         conn.commit()
         bot.reply_to(message, f"🎉 Привет, {user_fullname}!" + r"Вы добавлены в базу данных этого чата. /dick")
 
+    migrate_sqlite_to_mysql_in_background()
     conn.close()
 
 
@@ -153,7 +259,6 @@ def show_chat_top(message):
 def show_table(table):
     return "\n".join(
         [f"{reward(i + 1)} {i + 1}. <b>{row[0]}</b>: <b>{row[1]} см</b>" for i, row in enumerate(table)])
-    # [f"{reward(i + 1)} {i + 1}. <b>{row[0]}</b> {"🠙" if row[1] > 0 else "🠛"} <b>{row[1]} см</b>" for i, row in enumerate(table)])
 
 
 @bot.message_handler(commands=['dick', 'penis'])
@@ -172,7 +277,7 @@ def grow_penis(message):
     if result:
         score, last_used = result
         waiting_time = 43200  # 12 hours
-        # Если команда уже использовалась, и прошло меньше 24 часов
+        # Если команда уже использовалась, и прошло меньше 12 часов
         if last_used is not None and now - last_used < waiting_time:
             remaining = waiting_time - (now - last_used)
             hours = remaining // 3600
@@ -188,12 +293,18 @@ def grow_penis(message):
         cursor.execute("UPDATE info SET score = ?, last_used = ? WHERE user = ? AND chat_id = ?",
                        (updated_score, now, user_id, chat_id))
         conn.commit()
+
+        # Миграция данных в MySQL с обновленным score
+        migrate_sqlite_to_mysql_in_background()
+
         bot.reply_to(message,
                      f"🌱 Ваш член в этом чате вырос на <b>{grow}</b> см.\n📏 Теперь размер: <b>{updated_score}</b> см.",
                      parse_mode='HTML')
     else:
         bot.reply_to(message, "🚫 Вы не зарегистрированы в этом чате. Введите /start.")
+
     conn.close()
+
 
 
 @bot.message_handler(commands=['clear_table'])
@@ -218,6 +329,40 @@ def handle_confirmation(call):
             bot.send_message(call.message.chat.id, "✅ Все данные удалены.")
         else:
             bot.send_message(call.message.chat.id, "🚫 Ошибка подключения к базе данных.")
+    else:
+        bot.send_message(call.message.chat.id, "❌ Удаление отменено.")
+
+    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
+
+
+@bot.message_handler(commands=["clear_mysql_data"])
+def clear_mysql_data(message):
+    if message.from_user.id == CREATOR:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("Да", callback_data="clear_mysql_yes"))
+        markup.add(types.InlineKeyboardButton("Нет", callback_data="clear_mysql_no"))
+        bot.reply_to(message, "Вы уверены, что хотите удалить все данные из MySQL?", reply_markup=markup)
+    else:
+        bot.reply_to(message, "🚫 Только создатель бота может выполнить это действие.")
+
+
+@bot.callback_query_handler(func=lambda call: call.data in ["clear_mysql_yes", "clear_mysql_no"])
+def handle_mysql_clear_confirmation(call):
+    if call.data == "clear_mysql_yes":
+        mysql_conn, mysql_cursor = get_mysql_connection()
+        if mysql_conn and mysql_cursor:
+            try:
+                # Удаление всех данных из таблицы info в MySQL
+                mysql_cursor.execute("DELETE FROM info")
+                mysql_conn.commit()
+                mysql_cursor.close()
+                mysql_conn.close()
+                bot.send_message(call.message.chat.id, "✅ Все данные из MySQL удалены.")
+            except mysql.connector.Error as err:
+                logging.error(f"Ошибка при удалении данных из MySQL: {err}")
+                bot.send_message(call.message.chat.id, "🚫 Ошибка при удалении данных.")
+        else:
+            bot.send_message(call.message.chat.id, "🚫 Ошибка подключения к MySQL.")
     else:
         bot.send_message(call.message.chat.id, "❌ Удаление отменено.")
 
