@@ -3,3 +3,8 @@ sql_connect.py
 broadcast_message.py
 get_db.py
 test.db
+.env
+sql_connect.py
+broadcast_message.py
+get_db.py
+test.db
