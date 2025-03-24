@@ -5,4 +5,3 @@ get_db.py
 test.db
 migrate_mysql_to_sqlite.py
 dick_bot.db
-dick_bot.db
