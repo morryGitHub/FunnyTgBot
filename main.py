@@ -35,7 +35,7 @@ def get_db_connection():
     attempts = 5
     while attempts > 0:
         try:
-            conn = sqlite3.connect('test.db')
+            conn = sqlite3.connect('dick_bot.db')
             return conn, conn.cursor()
         except sqlite3.OperationalError as e:
             logging.error(f"Ошибка подключения к БД: {e}")
