@@ -9,7 +9,7 @@ import logging
 import telebot
 import threading
 
-from random import randint
+from random import randint, random
 from telebot import types
 from dotenv import load_dotenv
 
@@ -266,7 +266,7 @@ def grow_penis(message):
             return
 
         # Если прошло достаточно времени или команда вызывается впервые
-        grow = randint(-5, 10)
+        grow = custom_randint()  # -5, 10
         updated_score = score + grow
         cursor.execute("UPDATE info SET score = ?, last_used = ? WHERE user = ? AND chat_id = ?",
                        (updated_score, now, user_id, chat_id))
@@ -282,6 +282,13 @@ def grow_penis(message):
         bot.reply_to(message, "🚫 Вы не зарегистрированы в этом чате. Введите /start.")
 
     conn.close()
+
+
+def custom_randint():
+    while True:
+        grow = randint(-5, 10)
+        if grow >= 0 or random() < 0.5:  # 50% шанс пропустить отрицательное число
+            return grow
 
 
 @bot.message_handler(commands=['clear_table'])
