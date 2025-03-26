@@ -401,7 +401,7 @@ def handle_dice(message):
             return
 
         try:
-            sent_dice = bot.send_dice(message.chat.id, select_game())
+            sent_dice = bot.send_dice(message.chat.id, emoji='🎲')
             threading.Timer(5, process_dice_result, args=(message, sent_dice)).start()
         except Exception as e:
             logging.error(f"Ошибка при отправке кубика: {e}")
