@@ -387,9 +387,10 @@ def handle_dice(message):
         score, dice_control, last_used = result
         waiting_time = 10800  # 3 часа
 
-        if last_used is None:
+        if last_used is None or last_used == 0:
             bot.send_message(message.chat.id, "Чтобы сократить время, нужно чтобы оно было у вас. Введите /dick")
             return
+
 
         if dice_control is not None and now - dice_control < waiting_time:
             remaining = waiting_time - (now - dice_control)
