@@ -50,12 +50,6 @@ def get_db_connection():
     return None, None
 
 
-def schedule_backup():
-    """Запускает резервное копирование каждый час"""
-    backup_database_sqlite()
-    threading.Timer(3600, schedule_backup).start()  # Запускаем снова через 1 час
-
-
 def create_table():
     conn, cursor = get_db_connection()
     if conn and cursor:
@@ -182,7 +176,7 @@ def backup_database_sqlite():
         print(f"Ошибка при создании резервной копии: {e}")
 
 
-backup_database_sqlite()
+
 
 
 @bot.message_handler(commands=["start"])
@@ -226,7 +220,7 @@ def show_global_top(message):
     conn.close()
 
     if rows:
-        bot.reply_to(message, f"📝 <b>Топ пользователей: </b>\n\n{show_table(rows)}", parse_mode='HTML')
+        bot.reply_to(message, f"📝 <b>🏆 Hall of Fame: </b>\n\n{show_table(rows)}", parse_mode='HTML')
     else:
         bot.reply_to(message, "🚫 В базе нет пользователей.")
 
@@ -244,7 +238,7 @@ def show_chat_top(message):
     conn.close()
 
     if rows:
-        bot.reply_to(message, f"📝 <b>Топ пользователей:</b>\n\n{show_table(rows)}", parse_mode='HTML')
+        bot.reply_to(message, f"📝 <b>Топ пользователей чата:</b>\n\n{show_table(rows)}", parse_mode='HTML')
     else:
         bot.reply_to(message, "🚫 В базе нет пользователей.")
 
@@ -288,7 +282,9 @@ def grow_penis(message):
         conn.commit()
 
         # Миграция данных в MySQL с обновленным score
+        backup_database_sqlite()
         migrate_sqlite_to_mysql_in_background()
+
 
         bot.reply_to(message,
                      f"🌱 Ваш член в этом чате вырос на <b>{grow}</b> см.\n📏 Теперь размер: <b>{updated_score}</b> см.",
@@ -461,5 +457,4 @@ def process_dice_result(message, sent_dice):
         return False
 
 
-schedule_backup()
 bot.polling(non_stop=True)
