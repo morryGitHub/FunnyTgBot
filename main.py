@@ -50,6 +50,12 @@ def get_db_connection():
     return None, None
 
 
+def schedule_backup():
+    """Запускает резервное копирование каждый час"""
+    backup_database_sqlite()
+    threading.Timer(3600, schedule_backup).start()  # Запускаем снова через 1 час
+
+
 def create_table():
     conn, cursor = get_db_connection()
     if conn and cursor:
@@ -391,7 +397,6 @@ def handle_dice(message):
             bot.send_message(message.chat.id, "Чтобы сократить время, нужно чтобы оно было у вас. Введите /dick")
             return
 
-
         if dice_control is not None and now - dice_control < waiting_time:
             remaining = waiting_time - (now - dice_control)
             hours = remaining // 3600
@@ -440,7 +445,7 @@ def process_dice_result(message, sent_dice):
         result_last_used = cursor.fetchone()
 
         # Сокращаем время на 3 часа от last_used
-        new_last_used = result_last_used[0] - 3600 * time_hour  # Вычитаем 3 часа (10800 секунд)
+        new_last_used = result_last_used[0] - 3600 * time_hour
         if new_last_used < 0:
             new_last_used = 0
 
@@ -456,4 +461,5 @@ def process_dice_result(message, sent_dice):
         return False
 
 
+schedule_backup()
 bot.polling(non_stop=True)
