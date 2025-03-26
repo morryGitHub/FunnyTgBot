@@ -430,16 +430,17 @@ def process_dice_result(message, sent_dice):
         bot.reply_to(message, "🚫 Ошибка подключения к базе данных. Пожалуйста, попробуйте позже.")
         return
 
-    if result == 6:
+    if result in [4, 5, 6]:
+        time_hour = result - 6 + 3
         # Если выиграл
-        bot.reply_to(message, f"🎉 Поздравляю, победа! Ты сокращаешь время ожидания на 3 часа! 🌟")
+        bot.reply_to(message, f"🎉 Поздравляю, победа! Ты сокращаешь время ожидания на {time_hour} час(а)! 🌟")
 
         cursor.execute("SELECT last_used FROM info WHERE user = ? AND chat_id = ?",
                        (user_id, chat_id))
         result_last_used = cursor.fetchone()
 
         # Сокращаем время на 3 часа от last_used
-        new_last_used = result_last_used[0] - 10800  # Вычитаем 3 часа (10800 секунд)
+        new_last_used = result_last_used[0] - 3600 * time_hour  # Вычитаем 3 часа (10800 секунд)
         if new_last_used < 0:
             new_last_used = 0
 
