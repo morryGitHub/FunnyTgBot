@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 CREATOR = int(os.getenv("CREATOR_ID"))
-BACKUP = os.getenv("backup_dir")
+BACKUP = os.getenv(r"backup_dir")
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
