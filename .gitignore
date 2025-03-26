@@ -1,5 +1,5 @@
 .env
-sql_connect.py
+migrate_sqlite_to_mysql.py
 broadcast_message.py
 get_db.py
 test.db

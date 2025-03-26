@@ -9,7 +9,7 @@ import logging
 import telebot
 import threading
 
-from random import randint, random
+from random import randint, random, choice
 from telebot import types
 from dotenv import load_dotenv
 
@@ -23,6 +23,12 @@ BACKUP = os.getenv("backup_dir")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 bot = telebot.TeleBot(TOKEN)
+GAMES = ['🎯', '🏀', '⚽', '🎳', '🎲']
+message_ID = None
+
+
+def select_game():
+    return choice(GAMES)
 
 
 def migrate_sqlite_to_mysql_in_background():
@@ -55,6 +61,7 @@ def create_table():
             name TEXT,
             score INT DEFAULT 0,
             last_used INTEGER DEFAULT NULL,
+            dice_control INTEGER DEFAULT NULL,
             PRIMARY KEY (user, chat_id)
         )
         """)
@@ -92,7 +99,7 @@ def migrate_sqlite_to_mysql():
     sqlite_conn, sqlite_cursor = get_db_connection()
     if sqlite_conn and sqlite_cursor:
         try:
-            sqlite_cursor.execute("SELECT user, chat_id, name, score, last_used FROM info")
+            sqlite_cursor.execute("SELECT user, chat_id, name, score, last_used, dice_control FROM info")
             rows = sqlite_cursor.fetchall()
             sqlite_conn.close()
         except sqlite3.OperationalError as e:
@@ -110,6 +117,7 @@ def migrate_sqlite_to_mysql():
             name TEXT,
             score INT DEFAULT 0,
             last_used INTEGER DEFAULT NULL,
+            dice_control INTEGER DEFAULT NULL,
             PRIMARY KEY (user, chat_id)
         );
         """
@@ -118,12 +126,13 @@ def migrate_sqlite_to_mysql():
 
         # Вставка данных из SQLite в MySQL
         insert_query = """
-        INSERT INTO info (user, chat_id, name, score, last_used) 
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO info (user, chat_id, name, score, last_used, dice_control) 
+        VALUES (%s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE 
             name = VALUES(name),
             score = VALUES(score),
-            last_used = VALUES(last_used);
+            last_used = VALUES(last_used),
+            dice_control = VALUES(dice_control);
         """
 
         for row in rows:
@@ -357,4 +366,92 @@ def reward(place):
     return ["🥇", "🥈", "🥉", "🎗"][min(place - 1, 3)]
 
 
-bot.polling(none_stop=True)
+# minigames
+
+
+@bot.message_handler(commands=["game"])
+def handle_dice(message):
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+    now = int(time.time())  # текущее время в секундах
+
+    conn, cursor = get_db_connection()
+    if not conn:
+        bot.reply_to(message, "🚫 Ошибка подключения к базе данных. Пожалуйста, попробуйте позже.")
+        return
+
+    cursor.execute("SELECT score, dice_control, last_used FROM info WHERE user = ? AND chat_id = ?", (user_id, chat_id))
+    result = cursor.fetchone()
+
+    if result:
+        score, dice_control, last_used = result
+        waiting_time = 10800  # 3 часа
+
+        if last_used is None:
+            bot.send_message(message.chat.id, "Чтобы сократить время, нужно чтобы оно было у вас. Введите /dick")
+            return
+
+        if dice_control is not None and now - dice_control < waiting_time:
+            remaining = waiting_time - (now - dice_control)
+            hours = remaining // 3600
+            minutes = (remaining % 3600) // 60
+            bot.reply_to(message,
+                         f"🚫 Вы уже использовали эту команду недавно. Попробуйте снова через {hours}ч {minutes}м.")
+            conn.close()
+            return
+
+        try:
+            sent_dice = bot.send_dice(message.chat.id, select_game())
+            threading.Timer(5, process_dice_result, args=(message, sent_dice)).start()
+        except Exception as e:
+            logging.error(f"Ошибка при отправке кубика: {e}")
+            bot.reply_to(message, "🚫 Ошибка при отправке кубика.")
+
+        cursor.execute("UPDATE info SET dice_control = ? WHERE user = ? AND chat_id = ?", (now, user_id, chat_id))
+        conn.commit()
+
+        migrate_sqlite_to_mysql_in_background()
+
+        bot.send_message(message.chat.id, "🎲 Игра начинается! Удачи! 🍀")
+
+    else:
+        bot.reply_to(message, "🚫 Вы не зарегистрированы в этом чате. Введите /start для регистрации.")
+
+    conn.close()
+
+
+def process_dice_result(message, sent_dice):
+    result = sent_dice.dice.value  # Получаем результат
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+    conn, cursor = get_db_connection()
+    if not conn:
+        bot.reply_to(message, "🚫 Ошибка подключения к базе данных. Пожалуйста, попробуйте позже.")
+        return
+
+    if result == 6:
+        # Если выиграл
+        bot.reply_to(message, f"🎉 Поздравляю, победа! Ты сокращаешь время ожидания на 3 часа! 🌟")
+
+        cursor.execute("SELECT last_used FROM info WHERE user = ? AND chat_id = ?",
+                       (user_id, chat_id))
+        result_last_used = cursor.fetchone()
+
+        # Сокращаем время на 3 часа от last_used
+        new_last_used = result_last_used[0] - 10800  # Вычитаем 3 часа (10800 секунд)
+        if new_last_used < 0:
+            new_last_used = 0
+
+        # Обновляем поле last_used в базе данных
+        cursor.execute("UPDATE info SET last_used = ? WHERE user = ? AND chat_id = ?",
+                       (new_last_used, user_id, chat_id))
+        conn.commit()
+
+        return True
+    else:
+        # Если проиграл
+        bot.reply_to(message, "😢 Увы, ты проиграл. Попробуй снова! 🎲")
+        return False
+
+
+bot.polling(non_stop=True)
