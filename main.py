@@ -176,9 +176,6 @@ def backup_database_sqlite():
         print(f"Ошибка при создании резервной копии: {e}")
 
 
-
-
-
 @bot.message_handler(commands=["start"])
 def send_welcome(message):
     chat_id = message.chat.id
@@ -215,12 +212,13 @@ def show_global_top(message):
         bot.reply_to(message, "🚫 Ошибка подключения к базе данных.")
         return
 
-    cursor.execute("SELECT name, MAX(score) as max_score FROM info GROUP BY name ORDER BY max_score DESC")
+    cursor.execute("SELECT name, MAX(score) max_score, USER FROM info GROUP BY name ORDER BY max_score DESC")
     rows = cursor.fetchall()
     conn.close()
 
     if rows:
-        bot.reply_to(message, f"📝 <b>🏆 Hall of Fame: </b>\n\n{show_table(rows)}", parse_mode='HTML')
+        masked_rows = [(mask_name(row[0], row[2]), row[1]) for row in rows]
+        bot.reply_to(message, f"📝 <b>🏆 Hall of Fame: </b>\n\n{show_table(masked_rows)}", parse_mode='HTML')
     else:
         bot.reply_to(message, "🚫 В базе нет пользователей.")
 
@@ -233,19 +231,27 @@ def show_chat_top(message):
         bot.reply_to(message, "🚫 Ошибка подключения к базе данных.")
         return
 
-    cursor.execute("SELECT name, score FROM info WHERE chat_id = ? ORDER BY score DESC", (chat_id,))
+    cursor.execute("SELECT name, score, USER FROM info WHERE chat_id = ? ORDER BY score DESC", (chat_id,))
     rows = cursor.fetchall()
     conn.close()
 
     if rows:
-        bot.reply_to(message, f"📝 <b>Топ пользователей чата:</b>\n\n{show_table(rows)}", parse_mode='HTML')
+        masked_rows = [(mask_name(row[0], row[2]), row[1]) for row in rows]
+        bot.reply_to(message, f"📝 <b>Топ пользователей чата:</b>\n\n{show_table(masked_rows)}", parse_mode='HTML')
     else:
         bot.reply_to(message, "🚫 В базе нет пользователей.")
 
 
 def show_table(table):
     return "\n".join(
-        [f"{reward(i + 1)} {i + 1}. <b>{row[0]}</b>: <b>{row[1]} см</b>" for i, row in enumerate(table)])
+        [f"{reward(i + 1)} {i + 1}. <b>{row[0]}</b>: <b>{row[1]} см</b>" for i, row in enumerate(table)]
+    )
+
+
+def mask_name(name, user):
+    """Добавляет эмодзи перед ником пользователя."""
+    return f" ⚜️ {name}" if user == CREATOR else f"{name}"
+
 
 
 @bot.message_handler(commands=['dick', 'penis'])
@@ -284,7 +290,6 @@ def grow_penis(message):
         # Миграция данных в MySQL с обновленным score
         backup_database_sqlite()
         migrate_sqlite_to_mysql_in_background()
-
 
         bot.reply_to(message,
                      f"🌱 Ваш член в этом чате вырос на <b>{grow}</b> см.\n📏 Теперь размер: <b>{updated_score}</b> см.",
