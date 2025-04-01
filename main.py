@@ -253,7 +253,6 @@ def mask_name(name, user):
     return f" ⚜️ {name}" if user == CREATOR else f"{name}"
 
 
-
 @bot.message_handler(commands=['dick', 'penis'])
 def grow_penis(message):
     user_id = message.from_user.id
@@ -265,10 +264,10 @@ def grow_penis(message):
         bot.reply_to(message, "🚫 Ошибка подключения к базе данных.")
         return
 
-    cursor.execute("SELECT score, last_used FROM info WHERE user = ? AND chat_id = ?", (user_id, chat_id))
+    cursor.execute("SELECT score, last_used, coin FROM info WHERE user = ? AND chat_id = ?", (user_id, chat_id))
     result = cursor.fetchone()
     if result:
-        score, last_used = result
+        score, last_used, coin = result
         waiting_time = 43200  # 12 hours
         # Если команда уже использовалась, и прошло меньше 12 часов
         if last_used is not None and now - last_used < waiting_time:
@@ -283,8 +282,10 @@ def grow_penis(message):
         # Если прошло достаточно времени или команда вызывается впервые
         grow = custom_randint()  # -5, 10
         updated_score = score + grow
-        cursor.execute("UPDATE info SET score = ?, last_used = ? WHERE user = ? AND chat_id = ?",
-                       (updated_score, now, user_id, chat_id))
+        coin += randint(1, 5)
+
+        cursor.execute("UPDATE info SET score = ?, last_used = ?,SET coin = ? WHERE user = ? AND chat_id = ? ",
+                       (updated_score, now, coin, user_id, chat_id))
         conn.commit()
 
         # Миграция данных в MySQL с обновленным score
@@ -387,11 +388,11 @@ def handle_dice(message):
         bot.reply_to(message, "🚫 Ошибка подключения к базе данных. Пожалуйста, попробуйте позже.")
         return
 
-    cursor.execute("SELECT score, dice_control, last_used FROM info WHERE user = ? AND chat_id = ?", (user_id, chat_id))
+    cursor.execute("SELECT score, dice_control, last_used, coin FROM info WHERE user = ? AND chat_id = ?", (user_id, chat_id))
     result = cursor.fetchone()
 
     if result:
-        score, dice_control, last_used = result
+        score, dice_control, last_used, coin = result
         waiting_time = 10800  # 3 часа
 
         if last_used is None or last_used == 0:
@@ -441,9 +442,11 @@ def process_dice_result(message, sent_dice):
         # Если выиграл
         bot.reply_to(message, f"🎉 Поздравляю, победа! Ты сокращаешь время ожидания на {time_hour} час(а)! 🌟")
 
-        cursor.execute("SELECT last_used FROM info WHERE user = ? AND chat_id = ?",
+        cursor.execute("SELECT last_used, coin FROM info WHERE user = ? AND chat_id = ?",
                        (user_id, chat_id))
-        result_last_used = cursor.fetchone()
+        result_last_used, coin = cursor.fetchone()
+
+        coin += time_hour
 
         # Сокращаем время на 3 часа от last_used
         new_last_used = result_last_used[0] - 3600 * time_hour
@@ -451,8 +454,8 @@ def process_dice_result(message, sent_dice):
             new_last_used = 0
 
         # Обновляем поле last_used в базе данных
-        cursor.execute("UPDATE info SET last_used = ? WHERE user = ? AND chat_id = ?",
-                       (new_last_used, user_id, chat_id))
+        cursor.execute("UPDATE info SET last_used = ?, coin = ?WHERE user = ? AND chat_id = ?",
+                       (new_last_used, coin, user_id, chat_id))
         conn.commit()
 
         return True
@@ -460,6 +463,9 @@ def process_dice_result(message, sent_dice):
         # Если проиграл
         bot.reply_to(message, "😢 Увы, ты проиграл. Попробуй снова! 🎲")
         return False
+
+
+# COINS
 
 
 bot.polling(non_stop=True)
