@@ -429,7 +429,7 @@ def handle_dice(message):
 
 
 def process_dice_result(message, sent_dice):
-    result = sent_dice.dice.value  # Получаем результат
+    result = sent_dice.dice.value
     user_id = message.from_user.id
     chat_id = message.chat.id
     conn, cursor = get_db_connection()
