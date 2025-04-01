@@ -284,7 +284,7 @@ def grow_penis(message):
         updated_score = score + grow
         coin += randint(1, 5)
 
-        cursor.execute("UPDATE info SET score = ?, last_used = ?,SET coin = ? WHERE user = ? AND chat_id = ? ",
+        cursor.execute("UPDATE info SET score = ?, last_used = ?, coin = ? WHERE user = ? AND chat_id = ? ",
                        (updated_score, now, coin, user_id, chat_id))
         conn.commit()
 
@@ -388,7 +388,8 @@ def handle_dice(message):
         bot.reply_to(message, "🚫 Ошибка подключения к базе данных. Пожалуйста, попробуйте позже.")
         return
 
-    cursor.execute("SELECT score, dice_control, last_used, coin FROM info WHERE user = ? AND chat_id = ?", (user_id, chat_id))
+    cursor.execute("SELECT score, dice_control, last_used, coin FROM info WHERE user = ? AND chat_id = ?",
+                   (user_id, chat_id))
     result = cursor.fetchone()
 
     if result:
@@ -454,7 +455,7 @@ def process_dice_result(message, sent_dice):
             new_last_used = 0
 
         # Обновляем поле last_used в базе данных
-        cursor.execute("UPDATE info SET last_used = ?, coin = ?WHERE user = ? AND chat_id = ?",
+        cursor.execute("UPDATE info SET last_used = ?, coin = ? WHERE user = ? AND chat_id = ?",
                        (new_last_used, coin, user_id, chat_id))
         conn.commit()
 
