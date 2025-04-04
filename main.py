@@ -172,20 +172,20 @@ def backup_database_sqlite():
 
 @bot.message_handler(commands=['help'])
 def help_command(message):
-    help_text = (
-        "📋 *Command List:*\n\n"
-        "• /start – Register in the database.\n"
-        "• /dick – Increase your size by a random amount.\n"
-        "• /game – Play a mini-game to reduce cooldown time.\n"
-        "• /show_global_top – View the global leaderboard by score.\n"
-        "• /show_chat_top – View the top users in the current chat.\n"
-        "• /buy_mask – Buy a mask using your coins.\n"
-        "• /buy_boost – Buy a boost to reduce cooldown or get bonuses.\n"
-        "• /show_mask – Show your owned masks.\n"
-        "• /show_boosts – View available boosts and your boost inventory."
-    )
+    commands_text = """
+    start - Register in the database
+    dick - Increase your size by a random amount
+    game - Play a mini-game to reduce cooldown time
+    /show_global_top - View the global leaderboard by score
+    show_chat_top - View the top users in the current chat
+    buy_mask - Buy a mask using your coins
+    buy_boost - Buy a boost to reduce cooldown or get bonuses
+    show_mask - Show your owned masks
+    show_boosts - View available boosts and your boost inventory
+    help - All commands
+    """
 
-    bot.send_message(message.chat.id, help_text, parse_mode="Markdown")
+    bot.send_message(message.chat.id, commands_text, parse_mode="Markdown")
 
 
 @bot.message_handler(commands=["start"])
@@ -821,6 +821,7 @@ def show_inventory(message):
 
 active_boosts = {}
 
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("use_boost:"))
 def handle_use_boost(call):
     boost_id = int(call.data.split(":")[1])
@@ -886,7 +887,6 @@ def handle_use_boost(call):
 
     bot.answer_callback_query(call.id)
     bot.send_message(call.message.chat.id, f"✅ Boost '{boost_type}' activated!\n{effect_msg}")
-
 
 
 @bot.message_handler(commands=['inventory'])
