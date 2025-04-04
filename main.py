@@ -189,6 +189,26 @@ def help_command(message):
 
     bot.send_message(message.chat.id, commands_text_escaped, parse_mode="MarkdownV2")
 
+@bot.message_handler(commands=['balance'])
+def balance_command(message):
+    user_id = message.from_user.id
+
+    conn = sqlite3.connect('dick_bot.db')
+    cursor = conn.cursor()
+
+    # Получаем баланс монет пользователя
+    cursor.execute("SELECT coin FROM info WHERE user = ?", (user_id,))
+    result = cursor.fetchone()
+
+    conn.close()
+
+    if result:
+        coins = result[0]
+        bot.send_message(message.chat.id, f"💰 Ваш баланс: {coins} монет.")
+    else:
+        bot.send_message(message.chat.id, "❌ Не удалось найти ваш баланс.")
+
+
 
 @bot.message_handler(commands=["start"])
 def send_welcome(message):
