@@ -627,7 +627,7 @@ def shop(message):
     show_shop(message, page=1)  # По умолчанию показываем первую страницу
 
 
-@bot.message_handler(commands=['show_mask '])
+@bot.message_handler(commands=['show_mask'])
 def my_masks(message):
     user_id = message.from_user.id
     chat_id = message.chat.id
@@ -779,7 +779,7 @@ def buy_boost(boost_id: int, user_id: int, message):
     bot.send_message(message.chat.id, f"✅ You bought boost: {boost_type} for {price} coins.")
 
 
-@bot.message_handler(commands=['buy_boost '])
+@bot.message_handler(commands=['buy_boost'])
 def boosts_command(message):
     show_boosts_shop(message, page=1)
 
@@ -891,7 +891,7 @@ def handle_use_boost(call):
     bot.send_message(call.message.chat.id, f"✅ Boost '{boost_type}' activated!\n{effect_msg}")
 
 
-@bot.message_handler(commands=['show_boosts '])
+@bot.message_handler(commands=['show_boosts'])
 def inventory_command(message):
     show_inventory(message)
 
