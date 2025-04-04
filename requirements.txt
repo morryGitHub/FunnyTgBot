@@ -6,3 +6,4 @@ dotenv~=0.9.9
 mysql-connector-python~=9.2.0
 python-dotenv~=1.0.1
 aiogram~=3.10.0
+telegram~=0.0.1
