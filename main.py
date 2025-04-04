@@ -173,19 +173,21 @@ def backup_database_sqlite():
 @bot.message_handler(commands=['help'])
 def help_command(message):
     commands_text = """
-    start - Register in the database
-    dick - Increase your size by a random amount
-    game - Play a mini-game to reduce cooldown time
-    /show_global_top - View the global leaderboard by score
-    show_chat_top - View the top users in the current chat
-    buy_mask - Buy a mask using your coins
-    buy_boost - Buy a boost to reduce cooldown or get bonuses
-    show_mask - Show your owned masks
-    show_boosts - View available boosts and your boost inventory
-    help - All commands
+/start - Register in the database
+/dick - Increase your size by a random amount
+/game - Play a mini-game to reduce cooldown time
+/show_global_top - View the global leaderboard by score
+/show_chat_top - View the top users in the current chat
+/buy_mask - Buy a mask using your coins
+/buy_boost - Buy a boost to reduce cooldown or get bonuses
+/show_mask - Show your owned masks
+/show_boosts - View available boosts and your boost inventory
+/help - All commands
     """
+    # Экранирование с использованием MarkdownV2
+    commands_text_escaped = commands_text.replace("_", "\\_")
 
-    bot.send_message(message.chat.id, commands_text, parse_mode="Markdown")
+    bot.send_message(message.chat.id, commands_text_escaped, parse_mode="MarkdownV2")
 
 
 @bot.message_handler(commands=["start"])
@@ -620,12 +622,12 @@ def buy_mask(mask_id: int, user_id: int, message):
     bot.send_message(message.chat.id, f"✅ You bought {masks_unicode} for {price} coins.")
 
 
-@bot.message_handler(commands=['shop'])
+@bot.message_handler(commands=['buy_mask'])
 def shop(message):
     show_shop(message, page=1)  # По умолчанию показываем первую страницу
 
 
-@bot.message_handler(commands=['masks'])
+@bot.message_handler(commands=['show_mask '])
 def my_masks(message):
     user_id = message.from_user.id
     chat_id = message.chat.id
@@ -777,7 +779,7 @@ def buy_boost(boost_id: int, user_id: int, message):
     bot.send_message(message.chat.id, f"✅ You bought boost: {boost_type} for {price} coins.")
 
 
-@bot.message_handler(commands=['boosts'])
+@bot.message_handler(commands=['buy_boost '])
 def boosts_command(message):
     show_boosts_shop(message, page=1)
 
@@ -889,7 +891,7 @@ def handle_use_boost(call):
     bot.send_message(call.message.chat.id, f"✅ Boost '{boost_type}' activated!\n{effect_msg}")
 
 
-@bot.message_handler(commands=['inventory'])
+@bot.message_handler(commands=['show_boosts '])
 def inventory_command(message):
     show_inventory(message)
 
