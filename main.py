@@ -189,6 +189,7 @@ def help_command(message):
 
     bot.send_message(message.chat.id, commands_text_escaped, parse_mode="MarkdownV2")
 
+
 @bot.message_handler(commands=['balance'])
 def balance_command(message):
     user_id = message.from_user.id
@@ -207,7 +208,6 @@ def balance_command(message):
         bot.send_message(message.chat.id, f"💰 Ваш баланс: {coins} монет.")
     else:
         bot.send_message(message.chat.id, "❌ Не удалось найти ваш баланс.")
-
 
 
 @bot.message_handler(commands=["start"])
@@ -500,8 +500,8 @@ def process_dice_result(message, sent_dice):
         # Если выиграл
         bot.reply_to(message, f"🎉 Поздравляю, победа! Ты сокращаешь время ожидания на {time_hour} час(а)! 🌟")
 
-        cursor.execute("SELECT last_used FROM info WHERE user = ? ",
-                       (user_id,))
+        cursor.execute("SELECT last_used FROM info WHERE user = ? and chat_id = ? ",
+                       (user_id, chat_id))
 
         result_last_used = cursor.fetchone()
 
