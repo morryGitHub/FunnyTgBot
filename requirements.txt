@@ -1,9 +1,6 @@
-python-telegram-bot
-telebot~=0.0.5
-dotenv~=0.9.9
-
-
-mysql-connector-python~=9.2.0
-python-dotenv~=1.0.1
+environs~=14.2.0
+asyncio~=3.4.3
 aiogram~=3.10.0
-telegram~=0.0.1
+dotenv~=0.9.9
+python-dotenv~=1.0.1
+aiomysql~=0.2.0
