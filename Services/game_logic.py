@@ -6,11 +6,12 @@ import asyncio
 from aiogram import Bot
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from aiogram.types import Message
-from aiomysql import Pool
+from aiomysql import Pool, DictCursor
 
-from Database.database import user_chat_messages
+from Database.database import user_chat_messages, masks
 from Database.db_queries import SELECT_COIN_FROM_STATS, SELECT_ALL_SCORES, SELECT_ALL_SCORES_FROM_CHAT, \
-    UPDATE_AFTER_DICE, SELECT_SCORE_FROM_STATS, UPDATE_STATS_SCORE_TIME, UPDATE_STATS_COIN, SELECT_TIMES_FROM_STATS
+    UPDATE_AFTER_DICE, SELECT_SCORE_FROM_STATS, UPDATE_STATS_SCORE_TIME, UPDATE_STATS_COIN, SELECT_TIMES_FROM_STATS, \
+    ADD_NEW_MASK, SELECT_MASKS_FOR_USER
 
 HOURS_12 = 43200  # 12 hours
 HOURS_3 = 10800  # 3 hours
@@ -32,6 +33,16 @@ async def get_balance(dp_pool: Pool, user_id):
         async with conn.cursor() as cursor:
             # Получаем баланс монет пользователя
             await cursor.execute(SELECT_COIN_FROM_STATS, (user_id,))
+            row = await cursor.fetchone()
+            return row[0] if row else 0
+
+
+async def set_balance(dp_pool: Pool, user_id: int, balance: int):
+    """Set user's balance into database"""
+    async with dp_pool.acquire() as conn:
+        async with conn.cursor() as cursor:
+            # Меняем баланс монет пользователя
+            await cursor.execute(UPDATE_STATS_COIN, (balance, user_id,))
             row = await cursor.fetchone()
             return row[0] if row else 0
 
@@ -210,3 +221,51 @@ async def delete_user_messages(bot: Bot, user_id: int, chat_id: int, msg: Messag
             logging.error(f"Unexpected error deleting dice message: {e}")
 
     user_chat_messages.pop(user_id, None)
+
+
+async def save_mask_into_db(dp_pool: Pool, user_id: int, mask_id: str):
+    async with dp_pool.acquire() as conn:
+        async with conn.cursor() as cursor:
+            await cursor.execute(ADD_NEW_MASK, (user_id, mask_id))
+
+
+# async def update_balance_and_mask(dp_pool: Pool, user_id: int, new_balance: int, target_id: str):
+#     async with dp_pool.acquire() as conn:
+#         async with conn.cursor() as cursor:
+#             await conn.begin()  # начинаем транзакцию
+#             try:
+#                 # Выполняем первое действие — обновление баланса
+#                 await set_balance(dp_pool, user_id, new_balance)
+#
+#                 # Выполняем второе — сохранение маски
+#                 await save_mask_into_db(dp_pool, user_id, target_id)
+#
+#                 await conn.commit()  # коммитим изменения, если всё успешно
+#             except Exception:
+#                 await conn.rollback()  # откатываем при ошибке
+#                 raise
+
+
+async def get_my_masks(dp_pool, user_id):
+    async with dp_pool.acquire() as conn:
+        async with conn.cursor(DictCursor) as cursor:
+            await cursor.execute(SELECT_MASKS_FOR_USER, (user_id,))
+            return await cursor.fetchall()
+
+
+async def gather_all_masks(dp_pool, user_id):
+    res = await get_my_masks(dp_pool, user_id)
+
+    sorted_res = sorted(res, key=lambda x: x['count'], reverse=True)
+
+    full_str = ""
+    for user_mask in sorted_res:
+        # Ищем маску по id
+        matching_mask = next((m for m in masks if m['id'] == user_mask['mask_id']), None)
+        if matching_mask:
+            emoji = matching_mask['emoji']
+            count = user_mask['count']
+            full_str += f"{'' if count == 1 else count}{emoji}"
+        else:
+            logging.error(f"Неизвестная маска ID: {user_mask['mask_id']}")
+    return full_str

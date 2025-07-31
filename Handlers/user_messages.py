@@ -1,9 +1,13 @@
+import logging
+
 from aiogram import Router, Bot
 from aiogram.filters import Command, or_f, CommandStart
 from aiogram.types import Message
 from aiomysql import Pool
 
-from Services.game_logic import get_balance, get_scores, calculate_new_growth, game_dice
+from Database.database import masks
+from Keyboards.user_kb import shop_kb
+from Services.game_logic import get_balance, get_scores, calculate_new_growth, game_dice, get_my_masks, gather_all_masks
 from Services.view_logic import view_table
 
 user_messages = Router()
@@ -70,3 +74,28 @@ async def handle_dice(message: Message, bot: Bot, dp_pool: Pool, user_id: int, c
                     dp_pool=dp_pool,
                     message=message,
                     now=now)
+
+
+@user_messages.message(Command("shop"))
+async def handle_shop(message: Message):
+    await message.answer("Выбери маску", reply_markup=shop_kb(page=1))  # ✅ вызываем функцию
+
+    # try:
+    #     # Попробуем отредактировать старое сообщение с новым контентом и клавиатурой
+    #     bot.edit_message_text("Welcome to the Shop! Choose a mask to buy:", chat_id=message.chat.id,
+    #                           message_id=message.message_id, reply_markup=markup)
+    # except Exception as e:
+    #     # Если редактирование не удалось, отправим новое сообщение
+    #     print(f"Error editing message: {e}")
+    #     bot.send_message(message.chat.id, "Welcome to the Shop! Choose a mask to buy:", reply_markup=markup)
+
+
+@user_messages.message(Command("profile"))
+async def handle_shop(message: Message, dp_pool, user_id, username):
+    suitcase = await gather_all_masks(dp_pool, user_id)
+
+    await message.answer(
+        f'<a href="tg://user?id={user_id}">{username}</a> открывает свой 🧳Чемодан:\n\n'
+        f'Маски:  {suitcase or "пусто 😢"}',
+        parse_mode="HTML"
+    )

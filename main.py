@@ -1,14 +1,13 @@
 import asyncio
-import os
 import logging
 
-from aiogram import Router, Dispatcher, Bot
+from aiogram import Dispatcher, Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from dotenv import load_dotenv
 
 from Config.config import Config, load_config
 from Database.database import close_pool, create_pool
+from Handlers.user_callback import user_callback
 from Handlers.user_messages import user_messages
 from Middleware.db import DbMiddleware, CheckUserMiddleware
 
@@ -32,6 +31,7 @@ async def main():
     dp = Dispatcher()
     logger.info("Connect handlers")
     dp.include_router(user_messages)
+    dp.include_router(user_callback)
 
     try:
         dp['dp_pool'] = await create_pool()
@@ -45,7 +45,6 @@ async def main():
     logging.info('Connect Middlewares')
     dp.update.outer_middleware(DbMiddleware(pool))
     dp.update.outer_middleware(CheckUserMiddleware(pool))
-
 
     try:
         await dp.start_polling(bot)  # Запуск основного цикла обработки обновлений

@@ -39,38 +39,7 @@
 #     return items
 #
 #
-# def show_shop(message, page=1):
-#     items = get_shop_items_page(page)
-#     markup = types.InlineKeyboardMarkup()
-#
-#     for item in items:
-#         mask_id, masks_unicode, price = item
-#         button = types.InlineKeyboardButton(f"{masks_unicode} - {price} Coins", callback_data=f"buy_mask:{mask_id}")
-#         markup.add(button)
-#
-#     # Добавление кнопок для навигации
-#     navigation_buttons = []
-#
-#     if page > 1:  # Если это не первая страница, добавляем кнопку "Назад"
-#         navigation_buttons.append(types.InlineKeyboardButton("⬅️ Previous", callback_data=f"page:{page - 1}"))
-#
-#     navigation_buttons.append(types.InlineKeyboardButton(f"Page {page}", callback_data="current_page"))
-#     # Проверяем, есть ли товары на следующей странице
-#     next_page_items = get_shop_items_page(page + 1)
-#     if next_page_items:  # Если на следующей странице есть товары, добавляем кнопку "Next"
-#         navigation_buttons.append(types.InlineKeyboardButton("➡️ Next", callback_data=f"page:{page + 1}"))
-#
-#     markup.add(*navigation_buttons)
-#
-#     try:
-#         # Попробуем отредактировать старое сообщение с новым контентом и клавиатурой
-#         bot.edit_message_text("Welcome to the Shop! Choose a mask to buy:", chat_id=message.chat.id,
-#                               message_id=message.message_id, reply_markup=markup)
-#     except Exception as e:
-#         # Если редактирование не удалось, отправим новое сообщение
-#         print(f"Error editing message: {e}")
-#         bot.send_message(message.chat.id, "Welcome to the Shop! Choose a mask to buy:", reply_markup=markup)
-#
+
 #
 # @bot.callback_query_handler(func=lambda call: call.data.startswith("page:"))
 # def handle_page_navigation(call):

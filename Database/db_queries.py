@@ -27,7 +27,6 @@ SELECT_ALL_SCORES_FROM_CHAT = """
     JOIN UsersChats C ON C.user_id = U.user_id
     WHERE C.chat_id = %s
     ORDER BY S.score DESC
-
 """
 
 SELECT_COIN_FROM_STATS = """
@@ -66,4 +65,17 @@ INSERT_USER_INTO_UsersChats = """
 
 CHECK_USER_CHAT_EXISTS = """
     SELECT EXISTS(SELECT 1 FROM UsersChats WHERE user_id = %s AND chat_id = %s)
+"""
+
+"""UsersMasks"""
+ADD_NEW_MASK = """
+    INSERT INTO UsersMasks (user_id, mask_id, count)
+VALUES (%s, %s, 1)
+ON DUPLICATE KEY UPDATE count = count + 1;
+"""
+
+SELECT_MASKS_FOR_USER = """
+    SELECT mask_id, count 
+    FROM UsersMasks 
+    WHERE user_id = %s
 """
