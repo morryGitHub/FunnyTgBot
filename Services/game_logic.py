@@ -4,7 +4,7 @@ from random import randint, random
 import asyncio
 
 from aiogram import Bot
-from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
+from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest, TelegramAPIError
 from aiogram.types import Message
 from aiomysql import Pool, DictCursor
 
@@ -61,8 +61,17 @@ async def get_scores(dp_pool: Pool, chat_id: int = None):
 
 
 async def process_dice_result(bot: Bot, dp_pool, user_id, last_used, now):
-    dice_message = await bot.send_dice(chat_id=user_id)
-    value = dice_message.dice.value
+    try:
+        dice_message = await asyncio.wait_for(bot.send_dice(chat_id=user_id), timeout=5.0)
+        value = dice_message.dice.value
+    except asyncio.TimeoutError:
+        logging.warning("Dice was crushed")
+        await bot.send_message(chat_id=user_id, text="Try again")
+        return
+    except TelegramAPIError as e:
+        logging.warning(f"Error Telegram API: {e}")
+        await bot.send_message(chat_id=user_id, text="Try again")
+        return
     if is_winning_dice(value):
         # Если победил
         async with dp_pool.acquire() as conn:
