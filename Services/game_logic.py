@@ -72,10 +72,11 @@ async def process_dice_result(bot: Bot, dp_pool, user_id, last_used, now):
         logging.warning(f"Error Telegram API: {e}")
         await bot.send_message(chat_id=user_id, text="Try again")
         return
-    if is_winning_dice(value):
-        # Если победил
-        async with dp_pool.acquire() as conn:
-            async with conn.cursor() as cursor:
+
+    async with dp_pool.acquire() as conn:
+        async with conn.cursor() as cursor:
+            if is_winning_dice(value):
+                # Если победил
                 await cursor.execute(SELECT_COIN_FROM_STATS, (user_id,))
                 result_coin = await cursor.fetchone()
                 time_hour = calculate_reduce_time(value)
@@ -89,13 +90,12 @@ async def process_dice_result(bot: Bot, dp_pool, user_id, last_used, now):
                                        text=f"🎉 Поздравляю, победа! Ты сокращаешь время ожидания на {time_hour} час(а)! 🌟\n"
                                             f"💰 Получено монет: {time_hour} 🪙")
                 await cursor.execute(UPDATE_AFTER_DICE, (new_last_used, coin, now, user_id))
-    else:
-        # Если проиграл
-        await asyncio.sleep(4)
-        await bot.send_message(chat_id=user_id,
-                               text="😢 Увы, ты проиграл. Попробуй снова! 🎲")
-        async with dp_pool.acquire() as conn:
-            async with conn.cursor() as cursor:
+            else:
+                # Если проиграл
+                await asyncio.sleep(4)
+                await bot.send_message(chat_id=user_id,
+                                       text="😢 Увы, ты проиграл. Попробуй снова! 🎲")
+
                 current_coins = await get_balance(dp_pool, user_id)
                 await cursor.execute(UPDATE_AFTER_DICE, (last_used, current_coins, now, user_id))
 
@@ -145,20 +145,13 @@ async def calculate_new_growth(message: Message, bot: Bot, dp_pool: Pool, chat_i
                 await cursor.execute(UPDATE_STATS_SCORE_TIME, (new_score, now, user_id))
                 await cursor.execute(UPDATE_STATS_COIN, (new_coin_balance, user_id))
                 # Send response message
-                if grow >= 0:
-                    await message.answer(
-                        f"🌱 Ваш член вырос на <b>{grow}</b> см.\n"
-                        f"📏 Теперь размер: <b>{new_score}</b> см."
-                        f"💰 Получено монет: <b>{coins_to_add}</b> 🪙",
-                        parse_mode='HTML'
-                    )
-                else:
-                    await message.answer(
-                        f"🌱 Ваш член уменьшился на <b>{grow}</b> см.\n📏"
-                        f" Теперь размер: <b>{new_score}</b> см."
-                        f"💰 Получено монет: <b>{coins_to_add}</b> 🪙",
-                        parse_mode='HTML'
-                    )
+
+                await message.answer(
+                    f"🌱 Ваш член {'вырос' if grow >= 0 else 'уменьшился'}: на <b>{grow}</b> см.\n"
+                    f"📏 Теперь размер: <b>{new_score}</b> см."
+                    f"💰 Получено монет: <b>{coins_to_add}</b> 🪙",
+                    parse_mode='HTML'
+                )
 
 
 def calculate_remaining_time(waiting: int, now: int, last_used: int):
