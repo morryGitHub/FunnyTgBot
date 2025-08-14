@@ -34,7 +34,16 @@ async def get_balance(dp_pool: Pool, user_id):
             # Получаем баланс монет пользователя
             await cursor.execute(SELECT_COIN_FROM_STATS, (user_id,))
             row = await cursor.fetchone()
+            logging.debug('Balance got')
             return row[0] if row else 0
+
+
+async def get_balance_by_cursor(cursor, user_id):
+    """Get user's balance using existing cursor"""
+    await cursor.execute(SELECT_COIN_FROM_STATS, (user_id,))
+    row = await cursor.fetchone()
+    logging.debug('Balance got via existing cursor')
+    return row[0] if row else 0
 
 
 async def set_balance(dp_pool: Pool, user_id: int, balance: int):
@@ -76,27 +85,25 @@ async def process_dice_result(bot: Bot, dp_pool, user_id, last_used, now):
     async with dp_pool.acquire() as conn:
         async with conn.cursor() as cursor:
             if is_winning_dice(value):
-                # Если победил
-                await cursor.execute(SELECT_COIN_FROM_STATS, (user_id,))
-                result_coin = await cursor.fetchone()
+                result_coin = await get_balance_by_cursor(cursor, user_id)
                 time_hour = calculate_reduce_time(value)
-                # Прибавляем монет
-                coin = (result_coin[0] if result_coin else 0) + time_hour
-                # Сокращаем время
+                coin = result_coin + time_hour
                 new_last_used = calculate_new_wait_time(last_used, time_hour)
 
                 await asyncio.sleep(4)
-                await bot.send_message(chat_id=user_id,
-                                       text=f"🎉 Поздравляю, победа! Ты сокращаешь время ожидания на {time_hour} час(а)! 🌟\n"
-                                            f"💰 Получено монет: {time_hour} 🪙")
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=(
+                        f"🎉 Поздравляю, победа! Ты сокращаешь время ожидания на {time_hour} час(а)! 🌟\n"
+                        f"💰 Получено монет: {time_hour} 🪙"
+                    )
+                )
                 await cursor.execute(UPDATE_AFTER_DICE, (new_last_used, coin, now, user_id))
             else:
-                # Если проиграл
                 await asyncio.sleep(4)
-                await bot.send_message(chat_id=user_id,
-                                       text="😢 Увы, ты проиграл. Попробуй снова! 🎲")
+                await bot.send_message(chat_id=user_id, text="😢 Увы, ты проиграл. Попробуй снова! 🎲")
 
-                current_coins = await get_balance(dp_pool, user_id)
+                current_coins = await get_balance_by_cursor(cursor, user_id)
                 await cursor.execute(UPDATE_AFTER_DICE, (last_used, current_coins, now, user_id))
 
 
@@ -188,7 +195,9 @@ async def game_dice(bot: Bot, message: Message, dp_pool: Pool, user_id: int, cha
 
                     await bot.send_message(chat_id=user_id,
                                            text="🎲 Игра начинается! Удачи! 🍀")
+                    logging.debug("Game is started")
                     await process_dice_result(bot, dp_pool, user_id, last_used, now)
+                    logging.debug("Game finish")
                 except TelegramForbiddenError:
                     await message.answer("Для начала активируйте бот.")
                     return
@@ -198,13 +207,13 @@ async def game_dice(bot: Bot, message: Message, dp_pool: Pool, user_id: int, cha
 
 async def delete_user_messages(bot: Bot, user_id: int, chat_id: int, msg: Message | None = None):
     """
-        Delete dice messages from chat
+        Delete messages from chat
         Only deletes in group chats, not in private messages
         """
     message_id = user_chat_messages.get(user_id)
 
     if message_id is None:
-        logging.debug(f"No dice message found for user {user_id}")
+        logging.debug(f"No message found for user {user_id}")
         return
 
     if chat_id != user_id:
