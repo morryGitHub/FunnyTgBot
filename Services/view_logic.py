@@ -1,11 +1,24 @@
+import logging
+
 from aiogram.types import Message
+
+from Database.database import user_active_mask
+
+
+def mask_name(user_id, name):
+    """Добавляет эмодзи или маску перед ником пользователя."""
+    active_mask = user_active_mask.get(user_id, '')  # active_mask — строка с эмодзи
+    if active_mask:
+        return f"{active_mask[0]} {name}"
+    return name
 
 
 async def view_table(message: Message, rows):
     if rows:
-        masked_rows = [(row[0], row[1]) for row in rows]
+        # masked_rows — если хочешь, можно применить mask_name к никнеймам
+        masked_rows = [(mask_name(row[0], row[1]), row[2]) for row in rows]
+        logging.debug(masked_rows)
         await message.answer(f"📝 <b>🏆 Hall of Fame: </b>\n\n{show_table(masked_rows)}", parse_mode='HTML')
-
     else:
         await message.answer("🚫 В базе нет пользователей.")
 
@@ -18,22 +31,3 @@ def show_table(table):
 
 def reward(place):
     return ["🥇", "🥈", "🥉", "🎗"][min(place - 1, 3)]
-
-
-def mask_name(username, user_id):
-    """Добавляет эмодзи или маску перед ником пользователя."""
-    pass
-
-    # # Получаем активную маску пользователя из базы данных
-    # conn = sqlite3.connect('dick_bot.db')
-    # cursor = conn.cursor()
-    # cursor.execute("SELECT active_mask FROM info WHERE user = ?", (user,))
-    # active_mask = cursor.fetchone()
-    # conn.close()
-    #
-    # # Если маска найдена, добавляем её перед именем
-    # if active_mask and active_mask[0]:
-    #     return f"{active_mask[0]} {name}"
-    # else:
-    #     # Если маска не найдена, просто возвращаем имя
-    #     return f"{name}"

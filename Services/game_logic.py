@@ -8,10 +8,10 @@ from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest, Teleg
 from aiogram.types import Message
 from aiomysql import Pool, DictCursor
 
-from Database.database import user_chat_messages, masks
+from Database.database import user_chat_messages, MASKS, BOOSTS
 from Database.db_queries import SELECT_COIN_FROM_STATS, SELECT_ALL_SCORES, SELECT_ALL_SCORES_FROM_CHAT, \
     UPDATE_AFTER_DICE, SELECT_SCORE_FROM_STATS, UPDATE_STATS_SCORE_TIME, UPDATE_STATS_COIN, SELECT_TIMES_FROM_STATS, \
-    ADD_NEW_MASK, SELECT_MASKS_FOR_USER
+    ADD_NEW_MASK, SELECT_MASKS_FOR_USER, ADD_NEW_BOOST, SELECT_BOOSTS_FOR_USER
 
 HOURS_12 = 43200  # 12 hours
 HOURS_3 = 10800  # 3 hours
@@ -240,6 +240,12 @@ async def save_mask_into_db(dp_pool: Pool, user_id: int, mask_id: str):
             await cursor.execute(ADD_NEW_MASK, (user_id, mask_id))
 
 
+async def save_boost_into_db(dp_pool: Pool, user_id: int, boost_id: str):
+    async with dp_pool.acquire() as conn:
+        async with conn.cursor() as cursor:
+            await cursor.execute(ADD_NEW_BOOST, (user_id, boost_id))
+
+
 # async def update_balance_and_mask(dp_pool: Pool, user_id: int, new_balance: int, target_id: str):
 #     async with dp_pool.acquire() as conn:
 #         async with conn.cursor() as cursor:
@@ -264,19 +270,44 @@ async def get_my_masks(dp_pool, user_id):
             return await cursor.fetchall()
 
 
-async def gather_all_masks(dp_pool, user_id):
-    res = await get_my_masks(dp_pool, user_id)
+async def get_my_boosts(dp_pool, user_id):
+    async with dp_pool.acquire() as conn:
+        async with conn.cursor(DictCursor) as cursor:
+            await cursor.execute(SELECT_BOOSTS_FOR_USER, (user_id,))
+            return await cursor.fetchall()
 
-    sorted_res = sorted(res, key=lambda x: x['count'], reverse=True)
+
+async def gather_all_items(dp_pool, user_id):
+    # Получаем данные
+    masks = await get_my_masks(dp_pool, user_id)  # [{'mask_id': 'mask1', 'count': 2}, ...]
+    boosts = await get_my_boosts(dp_pool, user_id)  # [{'boost_id': 'boost3', 'count': 1}, ...]
+
+    # Сортируем по count
+    sorted_masks = sorted(masks, key=lambda x: x['count'], reverse=True)
+    sorted_boosts = sorted(boosts, key=lambda x: x['count'], reverse=True)
 
     full_str = ""
-    for user_mask in sorted_res:
-        # Ищем маску по id
-        matching_mask = next((m for m in masks if m['id'] == user_mask['mask_id']), None)
+
+    # Обрабатываем маски
+    for user_mask in sorted_masks:
+        matching_mask = next((m for m in MASKS if m['id'] == user_mask['mask_id']), None)
         if matching_mask:
-            emoji = matching_mask['emoji']
             count = user_mask['count']
-            full_str += f"{'' if count == 1 else count}{emoji}"
+            emoji = matching_mask['emoji']
+            full_str += f"{emoji}" if count == 1 else f"{count}{emoji}"
         else:
             logging.error(f"Неизвестная маска ID: {user_mask['mask_id']}")
+    full_str += "\nЭнергетики: "
+
+    # Обрабатываем бусты
+    for user_boost in sorted_boosts:
+        matching_boost = next((b for b in BOOSTS if b['id'] == user_boost['boost_id']), None)
+        if matching_boost:
+            emoji = "⚡"
+            count = user_boost.get("count", 1)
+            time_str = matching_boost['name'].split()[-1]  # Берём только время, например "2h"
+            full_str += f"{emoji}{time_str}x{count}" if count > 1 else f"{emoji}{time_str}"
+        else:
+            logging.error(f"Неизвестный буст ID: {user_boost['boost_id']}")
+
     return full_str

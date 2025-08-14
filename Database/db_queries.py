@@ -4,7 +4,7 @@ SELECT_SCORE_FROM_STATS = """
 """
 
 SELECT_ALL_SCORES = """
-    SELECT Users.username, Stats.score
+    SELECT Users.user_id, Users.username, Stats.score
     FROM Stats
     JOIN Users ON Stats.user_id = Users.user_id
     ORDER BY Stats.score DESC
@@ -21,7 +21,7 @@ SELECT_COIN_FROM_STATS = """
 """
 
 SELECT_ALL_SCORES_FROM_CHAT = """
-    SELECT U.username, S.score
+    SELECT U.user_id, U.username, S.score
     FROM Stats S
     JOIN Users U ON S.user_id = U.user_id
     JOIN UsersChats C ON C.user_id = U.user_id
@@ -74,8 +74,20 @@ VALUES (%s, %s, 1)
 ON DUPLICATE KEY UPDATE count = count + 1;
 """
 
+ADD_NEW_BOOST = """
+    INSERT INTO UsersBoosts (user_id, boost_id, count)
+VALUES (%s, %s, 1)
+ON DUPLICATE KEY UPDATE count = count + 1;
+"""
+
 SELECT_MASKS_FOR_USER = """
     SELECT mask_id, count 
     FROM UsersMasks 
+    WHERE user_id = %s
+"""
+
+SELECT_BOOSTS_FOR_USER = """
+    SELECT boost_id, count 
+    FROM UsersBoosts 
     WHERE user_id = %s
 """

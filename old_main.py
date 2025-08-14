@@ -437,4 +437,3 @@
 #                               parse_mode="HTML")
 #
 #
-# bot.polling(non_stop=True)

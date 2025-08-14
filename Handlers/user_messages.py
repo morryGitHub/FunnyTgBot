@@ -1,13 +1,14 @@
-import logging
-
 from aiogram import Router, Bot
 from aiogram.filters import Command, or_f, CommandStart
+from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from aiomysql import Pool
 
-from Database.database import masks
-from Keyboards.user_kb import shop_kb
-from Services.game_logic import get_balance, get_scores, calculate_new_growth, game_dice, get_my_masks, gather_all_masks
+from Database.database import user_active_mask
+from FSM.Shop import ShopStates
+from Keyboards.user_kb import mask_kb, inventory_section_kb
+from Services.game_logic import get_balance, get_scores, calculate_new_growth, game_dice, gather_all_items, \
+    get_my_masks, get_my_boosts
 from Services.view_logic import view_table
 
 user_messages = Router()
@@ -41,7 +42,7 @@ async def help_command(message: Message):
 @user_messages.message(Command('balance'))
 async def balance_command(message: Message, dp_pool: Pool, user_id: int):
     coins = await get_balance(dp_pool, user_id)
-    await message.answer(f"💰 Ваш баланс: {coins} монет")
+    await message.answer(f"💰 Ваш баланс: {coins} монет 🪙")
 
 
 @user_messages.message(or_f(Command('dick'), Command('penis')))
@@ -77,8 +78,11 @@ async def handle_dice(message: Message, bot: Bot, dp_pool: Pool, user_id: int, c
 
 
 @user_messages.message(Command("shop"))
-async def handle_shop(message: Message):
-    await message.answer("Выбери маску", reply_markup=shop_kb(page=1))  # ✅ вызываем функцию
+async def handle_shop(message: Message, dp_pool: Pool, user_id: int, state: FSMContext):
+    await message.answer(f"🏪<i>Магазин</i>: {await get_balance(dp_pool=dp_pool, user_id=user_id)} 🪙\n"
+                         f"<i>Выберите раздел магазина:<b> Маски | Ускорение </b></i>", parse_mode="HTML",
+                         reply_markup=mask_kb(page=1))  # ✅ вызываем функцию
+    await state.set_state(ShopStates.main)
 
     # try:
     #     # Попробуем отредактировать старое сообщение с новым контентом и клавиатурой
@@ -92,10 +96,20 @@ async def handle_shop(message: Message):
 
 @user_messages.message(Command("profile"))
 async def handle_shop(message: Message, dp_pool, user_id, username):
-    suitcase = await gather_all_masks(dp_pool, user_id)
-
+    suitcase = await gather_all_items(dp_pool, user_id)
     await message.answer(
         f'<a href="tg://user?id={user_id}">{username}</a> открывает свой 🧳Чемодан:\n\n'
         f'Маски:  {suitcase or "пусто 😢"}',
         parse_mode="HTML"
     )
+
+
+@user_messages.message(Command("inventory"))
+async def handle_inventory(message: Message, dp_pool, username, user_id):
+    masks = await get_my_masks(dp_pool, user_id)
+    kb = inventory_section_kb(masks, "Маски", is_mask=True, user_id=user_id)
+    balance = await get_balance(dp_pool, user_id)
+    active_mask = user_active_mask.get(user_id, '🚫')
+    await message.answer(
+        f'<a href="tg://user?id={user_id}">{username}</a> открывает свой 🧳Чемодан:\nБаланс: {balance} 🪙\nМаска: {active_mask}\n\nВыбери стильную маску, чтобы она отображалась рядом с твоим именем в рейтинге. Покажи свой уникальный образ!',
+        parse_mode="HTML", reply_markup=kb)
