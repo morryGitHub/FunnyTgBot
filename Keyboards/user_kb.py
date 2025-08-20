@@ -1,11 +1,12 @@
+import logging
 import math
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from dataclasses import dataclass
 from enum import Enum
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from Database.database import MASKS, BOOSTS, user_active_mask
+from Database.database import MASKS, BOOSTS, user_active_mask, BOOSTS_MAP
 
 
 # Constant
@@ -19,8 +20,8 @@ class ShopConfig:
     INFO_EMOJI = '❔'
     COIN_EMOJI = '💰'
     LOCK_EMOJI = '🔒'
-    PREV_EMOJI = '⬅️'
-    NEXT_EMOJI = '➡️'
+    PREV_EMOJI = '<'
+    NEXT_EMOJI = '>'
     SEARCH_EMOJI = '🔎'
     LOW_BATTERY_EMOJI = '🪫'
     BATTERY_EMOJI = '🔋'
@@ -72,18 +73,18 @@ class ShopKeyboardBuilder:
             active_category: str,
             callback_prefix: str = "page"
     ) -> List[InlineKeyboardButton]:
-        """Create navigation buttons row"""
+        """Create navigation buttons row with cyclic navigation"""
         navigation = []
 
-        # Left navigation
+        # Left navigation - если первая страница, то переход на последнюю
         if pagination.page == 1:
             navigation.append(
                 InlineKeyboardButton(
-                    text=ShopConfig.LOCK_EMOJI,
-                    callback_data="nothing"
+                    text=ShopConfig.PREV_EMOJI,
+                    callback_data=f"{callback_prefix}:{pagination.total_pages}:{active_category}"
                 )
             )
-        elif pagination.has_prev:
+        else:
             navigation.append(
                 InlineKeyboardButton(
                     text=ShopConfig.PREV_EMOJI,
@@ -99,41 +100,53 @@ class ShopKeyboardBuilder:
             )
         )
 
-        # Right navigation
-        if pagination.has_next:
+        # Right navigation - если последняя страница, то переход на первую
+        if pagination.page == pagination.total_pages:
+            navigation.append(
+                InlineKeyboardButton(
+                    text=ShopConfig.NEXT_EMOJI,
+                    callback_data=f"{callback_prefix}:1:{active_category}"
+                )
+            )
+        else:
             navigation.append(
                 InlineKeyboardButton(
                     text=ShopConfig.NEXT_EMOJI,
                     callback_data=f"{callback_prefix}:{pagination.page + 1}:{active_category}"
                 )
             )
-        elif pagination.page == pagination.total_pages:
-            navigation.append(
-                InlineKeyboardButton(
-                    text=ShopConfig.LOCK_EMOJI,
-                    callback_data="nothing"
-                )
-            )
 
         return navigation
 
     @staticmethod
-    def create_category_row(active_category: str) -> List[InlineKeyboardButton]:
+    def create_category_row(active_category: str, include_inventory: bool = True) -> List[InlineKeyboardButton]:
         """Create category selection buttons"""
         mask_active = active_category == Category.MASKS.value
         boost_active = active_category == Category.BOOSTS.value
+        inventory_active = active_category == Category.INVENTORY.value
+
+        buttons = []
 
         mask_btn = InlineKeyboardButton(
             text=f"{ShopConfig.SEARCH_EMOJI} Masks" if mask_active else "Masks",
             callback_data="nothing" if mask_active else f"category:{Category.MASKS.value}"
         )
+        buttons.append(mask_btn)
 
         boost_btn = InlineKeyboardButton(
             text=f"{ShopConfig.SEARCH_EMOJI} Boosts" if boost_active else "Boosts",
             callback_data="nothing" if boost_active else f"category:{Category.BOOSTS.value}"
         )
+        buttons.append(boost_btn)
 
-        return [mask_btn, boost_btn]
+        if include_inventory:
+            inventory_btn = InlineKeyboardButton(
+                text=f"{ShopConfig.SEARCH_EMOJI} Inventory" if inventory_active else "Inventory",
+                callback_data="nothing" if inventory_active else f"category:{Category.INVENTORY.value}"
+            )
+            buttons.append(inventory_btn)
+
+        return buttons
 
 
 class MaskShopKeyboard:
@@ -199,9 +212,9 @@ class BoostShopKeyboard:
             return ShopConfig.BATTERY_EMOJI
 
     @staticmethod
-    def _calculate_price(time_minutes: int) -> int:
+    def _calculate_price(time_seconds: int) -> int:
         """Calculate boost price based on duration"""
-        return time_minutes // 30 * 5  # Every 30 minutes = 5 coins
+        return time_seconds // 1800 * 5  # Every 30 minutes = 5 coins
 
     @staticmethod
     def build(page: int, active_category: str = Category.BOOSTS.value) -> InlineKeyboardMarkup:
@@ -254,12 +267,30 @@ class InventoryKeyboard:
     """Keyboard builder for user inventory"""
 
     @staticmethod
-    def build_boost_inventory(user_boosts: List[Dict], page: int) -> InlineKeyboardMarkup:
+    def build_boost_inventory(user_boosts: List[Dict], page: int = 1) -> InlineKeyboardMarkup:
         """Build inventory keyboard for user boosts"""
         buttons = []
 
+        # enrich boosts with info from BOOSTS_MAP
+        enriched_boosts = []
+        for ub in user_boosts:
+            boost_id = ub.get("boost_id")
+            count = ub.get("count", 0)
+
+            boost_info = BOOSTS_MAP.get(boost_id)
+            if not boost_info or count <= 0:
+                continue
+
+            enriched_boosts.append({
+                "boost_id": boost_id,
+                "name": boost_info["name"],
+                "time": boost_info["time"],
+                "price": boost_info["price"],
+                "count": count
+            })
+
         # Sort boosts by time
-        sorted_boosts = sorted(user_boosts, key=lambda x: x.get("time", 0))
+        sorted_boosts = sorted(enriched_boosts, key=lambda x: x.get("time", 0))
 
         # Calculate pagination
         pagination = ShopKeyboardBuilder.calculate_pagination(
@@ -271,15 +302,16 @@ class InventoryKeyboard:
 
         # Create boost buttons
         for boost in page_items:
-            boost_id = boost.get("id")
-            name = boost.get("name", "Unknown boost")
-            time_minutes = boost.get("time", 0)
-            count = boost.get("count", 1)
+            logging.debug(boost)
+            boost_id = boost["boost_id"]
+            name = boost["name"]
+            time_seconds = boost["time"]
+            count = boost["count"]
             emoji = BoostShopKeyboard._get_boost_emoji(boost_id)
 
             info_btn = InlineKeyboardButton(
                 text=f"{emoji}{name} x{count}{ShopConfig.INFO_EMOJI}",
-                callback_data=f"boost_info:{boost_id}:{name}:{time_minutes}"
+                callback_data=f"boost_info:{boost_id}:{name}:{time_seconds // 60}"
             )
             use_btn = InlineKeyboardButton(
                 text=f"Использовать {ShopConfig.LIGHTNING_EMOJI}",
@@ -294,21 +326,31 @@ class InventoryKeyboard:
             )
             buttons.append(navigation_row)
 
+        # Add shop/inventory navigation
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"{ShopConfig.PIN_EMOJI} Маски",
+                callback_data="show_masks"
+            ),
+            InlineKeyboardButton(
+                text=f"🏪 Магазин",
+                callback_data=f"category:{Category.MASKS.value}"
+            )
+        ])
+
         return InlineKeyboardMarkup(inline_keyboard=buttons)
 
     @staticmethod
-    def build_section(
+    def build_mask_inventory(
             items: List[Dict],
-            section: str,
-            is_mask: bool,
             user_id: int
     ) -> InlineKeyboardMarkup:
-        """Build inventory section keyboard (masks or boosts)"""
+        """Build inventory section for masks only"""
         buttons = []
         row = []
 
         for item in items:
-            button = InventoryKeyboard._create_item_button(item, is_mask, user_id)
+            button = InventoryKeyboard._create_mask_button(item, user_id)
             if button:
                 row.append(button)
                 if len(row) >= ShopConfig.INVENTORY_ITEMS_PER_ROW:
@@ -318,52 +360,58 @@ class InventoryKeyboard:
         if row:
             buttons.append(row)
 
-        # Add section switch button
-        switch_text = "Бусты" if is_mask else "Маски"
-        switch_callback = "show_boosts" if is_mask else "show_masks"
+        # Add shop/inventory navigation
         buttons.append([
             InlineKeyboardButton(
-                text=f"{ShopConfig.PIN_EMOJI} {switch_text}",
-                callback_data=switch_callback
+                text=f"{ShopConfig.PIN_EMOJI} Бусты",
+                callback_data="show_boosts"
+            ),
+            InlineKeyboardButton(
+                text=f"🏪 Магазин",
+                callback_data=f"category:{Category.MASKS.value}"
             )
         ])
 
         return InlineKeyboardMarkup(inline_keyboard=buttons)
 
     @staticmethod
-    def _create_item_button(
+    def _create_mask_button(
             item: Dict,
-            is_mask: bool,
             user_id: int
     ) -> Optional[InlineKeyboardButton]:
-        """Create a single inventory item button"""
-        if is_mask:
-            matching = next((m for m in MASKS if m['id'] == item['mask_id']), None)
-            if not matching:
-                return None
+        """Create a single mask inventory button"""
+        matching = next((m for m in MASKS if m['id'] == item['mask_id']), None)
+        if not matching:
+            return None
 
-            emoji = matching.get('emoji', '❔')
-            count = item.get('count', 1)
+        emoji = matching.get('emoji', '❔')
+        count = item.get('count', 1)
 
-            # Mark active mask
-            is_active = user_active_mask.get(user_id) == emoji
-            prefix = ShopConfig.ACTIVE_MARKER if is_active else ""
-            count_text = f"({count})" if count > 1 else ""
+        # Mark active mask
+        is_active = user_active_mask.get(user_id) == emoji
+        prefix = ShopConfig.ACTIVE_MARKER if is_active else ""
+        count_text = f"({count})" if count > 1 else ""
 
-            text = f"{prefix}{count_text}{emoji}"
-            callback = f"use_mask:{item['mask_id']}"
-        else:
-            matching = next((b for b in BOOSTS if b['id'] == item['boost_id']), None)
-            if not matching:
-                return None
-
-            count = item.get('count', 1)
-            count_text = f"({count})" if count > 1 else ""
-
-            text = f"{count_text}{ShopConfig.LIGHTNING_EMOJI}{matching['name']}"
-            callback = f"use_boost:{item['boost_id']}"
+        text = f"{prefix}{count_text}{emoji}"
+        callback = f"use_mask:{item['mask_id']}"
 
         return InlineKeyboardButton(text=text, callback_data=callback)
+
+    @staticmethod
+    def build_section(
+            items: List[Dict],
+            section: str,
+            is_mask: bool,
+            user_id: int
+    ) -> InlineKeyboardMarkup:
+        """Build inventory section keyboard - now routes to appropriate detailed view"""
+        if is_mask:
+            return InventoryKeyboard.build_mask_inventory(items, user_id)
+        else:
+            # Convert items to the format expected by build_boost_inventory
+            user_boosts = [{"boost_id": item.get("boost_id"), "count": item.get("count", 1)}
+                           for item in items]
+            return InventoryKeyboard.build_boost_inventory(user_boosts)
 
 
 # Main interface functions (backward compatibility)
@@ -377,7 +425,7 @@ def boosts_kb(page: int, active_category: str = Category.BOOSTS.value) -> Inline
     return BoostShopKeyboard.build(page, active_category)
 
 
-def boost_shop_kb(user_boosts: List[Dict], page: int) -> InlineKeyboardMarkup:
+def boost_shop_kb(user_boosts: List[Dict], page: int = 1) -> InlineKeyboardMarkup:
     """Build boost inventory keyboard (backward compatibility wrapper)"""
     return InventoryKeyboard.build_boost_inventory(user_boosts, page)
 
@@ -396,7 +444,12 @@ async def show_category(
         message: Message,
         category: str,
         balance: int,
-        page: int = 1
+        full_name: str,
+        active_mask: str,
+        page: int = 1,
+        user_id: int = None,
+        user_masks: List[Dict] = None,
+        user_boosts: List[Dict] = None
 ) -> None:
     """Display shop category with appropriate keyboard"""
     keyboard_map = {
@@ -404,14 +457,43 @@ async def show_category(
         Category.BOOSTS.value: BoostShopKeyboard.build,
     }
 
-    builder = keyboard_map.get(category)
-    if not builder:
-        return
+    # Handle inventory category
+    if category == Category.INVENTORY.value:
+        # Показываем маски в инвентаре
+        logging.info(f"user_masks: {user_masks}")
 
-    keyboard = builder(page, category)
-    text = (
-        f"🏪<i>Магазин</i>: {balance} 🪙\n"
-        f"<i>Выберите раздел магазина:<b> Маски | Ускорение </b></i>"
-    )
+        if user_masks and len(user_masks) > 0:
+
+            keyboard = InventoryKeyboard.build_mask_inventory(user_masks, user_id)
+        else:
+            # Пустой инвентарь
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(
+                    text=f"{ShopConfig.PIN_EMOJI} Бусты",
+                    callback_data="show_boosts"
+                ),
+                InlineKeyboardButton(
+                    text=f"🏪 Магазин",
+                    callback_data=f"category:{Category.MASKS.value}"
+                )
+            ]])
+
+        text = f"""<i><a href="tg://user?id={user_id}">{full_name}</a> открывает свой 🧳Чемодан:
+Баланс: {balance} 🪙
+Маска: {active_mask}
+
+Выбери стильную маску, чтобы она отображалась рядом с твоим именем в рейтинге. Покажи свой уникальный образ!</i>"""
+
+    else:
+        # Shop categories
+        builder = keyboard_map.get(category)
+        if not builder:
+            return
+
+        keyboard = builder(page, category)
+        text = (
+            f"🏪<i>Магазин</i>: {balance} 🪙\n"
+            f"<i>Выберите раздел магазина:<b> Маски | Ускорение | Инвентарь</b></i>"
+        )
 
     await message.edit_text(text, reply_markup=keyboard)

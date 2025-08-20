@@ -40,10 +40,12 @@ class CheckUserMiddleware(BaseMiddleware):
         username = user.username or "Unknown"
         user_id = user.id
         chat_id = chat.id
+        full_name = user.full_name or "Unknown"
         now = int(time.time())  # текущее время в секундах
         data["user_id"] = user_id
         data["username"] = username
         data["chat_id"] = chat_id
+        data["full_name"] = full_name
         data["now"] = now
 
         async with self.pool.acquire() as conn:

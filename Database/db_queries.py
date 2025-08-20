@@ -91,3 +91,30 @@ SELECT_BOOSTS_FOR_USER = """
     FROM UsersBoosts 
     WHERE user_id = %s
 """
+
+UPDATE_STATS_LAST_USED = """
+    UPDATE Stats 
+    SET last_used = %s 
+    WHERE user_id = %s
+"""
+DEL_BOOST = """
+    INSERT INTO UsersBoosts (user_id, boost_id, count)
+    VALUES (%s, %s, 1)
+    ON DUPLICATE KEY UPDATE count = count + 1;
+"""
+
+DEL_BOOST_UPDATE = """
+    UPDATE UsersBoosts 
+    SET count = count - 1 
+    WHERE user_id = %s AND boost_id = %s AND count > 0;
+"""
+
+DEL_BOOST_CLEANUP = """
+    DELETE FROM UsersBoosts 
+    WHERE user_id = %s AND boost_id = %s AND count <= 0;
+"""
+
+CHECK_BOOST_COUNT = """
+    SELECT count FROM UsersBoosts 
+    WHERE user_id = %s AND boost_id = %s;
+"""

@@ -105,11 +105,11 @@ async def handle_shop(message: Message, dp_pool, user_id, username):
 
 
 @user_messages.message(Command("inventory"))
-async def handle_inventory(message: Message, dp_pool, username, user_id):
+async def handle_inventory(message: Message, dp_pool, full_name, user_id):
     masks = await get_my_masks(dp_pool, user_id)
-    kb = inventory_section_kb(masks, "Маски", is_mask=True, user_id=user_id)
     balance = await get_balance(dp_pool, user_id)
     active_mask = user_active_mask.get(user_id, '🚫')
+    kb = inventory_section_kb(masks, "Маски", is_mask=True, user_id=user_id)
     await message.answer(
-        f'<a href="tg://user?id={user_id}">{username}</a> открывает свой 🧳Чемодан:\nБаланс: {balance} 🪙\nМаска: {active_mask}\n\nВыбери стильную маску, чтобы она отображалась рядом с твоим именем в рейтинге. Покажи свой уникальный образ!',
+        f'<i><a href="tg://user?id={user_id}">{full_name}</a> открывает свой 🧳Чемодан:\nБаланс: {balance} 🪙\nМаска: {active_mask}\n\nВыбери стильную маску, чтобы она отображалась рядом с твоим именем в рейтинге. Покажи свой уникальный образ!</i>',
         parse_mode="HTML", reply_markup=kb)

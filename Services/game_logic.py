@@ -1,4 +1,5 @@
 import logging
+import time
 from random import randint, random
 
 import asyncio
@@ -8,13 +9,11 @@ from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest, Teleg
 from aiogram.types import Message
 from aiomysql import Pool, DictCursor
 
-from Database.database import user_chat_messages, MASKS, BOOSTS
+from Database.database import user_chat_messages, MASKS, BOOSTS, HOURS_12, HOURS_3
 from Database.db_queries import SELECT_COIN_FROM_STATS, SELECT_ALL_SCORES, SELECT_ALL_SCORES_FROM_CHAT, \
     UPDATE_AFTER_DICE, SELECT_SCORE_FROM_STATS, UPDATE_STATS_SCORE_TIME, UPDATE_STATS_COIN, SELECT_TIMES_FROM_STATS, \
-    ADD_NEW_MASK, SELECT_MASKS_FOR_USER, ADD_NEW_BOOST, SELECT_BOOSTS_FOR_USER
-
-HOURS_12 = 43200  # 12 hours
-HOURS_3 = 10800  # 3 hours
+    ADD_NEW_MASK, SELECT_MASKS_FOR_USER, ADD_NEW_BOOST, SELECT_BOOSTS_FOR_USER, UPDATE_STATS_LAST_USED, \
+    CHECK_BOOST_COUNT, DEL_BOOST_UPDATE, DEL_BOOST_CLEANUP
 
 
 async def custom_randint():
@@ -311,3 +310,120 @@ async def gather_all_items(dp_pool, user_id):
             logging.error(f"Неизвестный буст ID: {user_boost['boost_id']}")
 
     return full_str
+
+
+async def check_and_use_boost_from_inventory(cursor, user_id: int, boost_id: str):
+    """
+    Проверяет наличие буста и использует его из инвентаря
+    """
+    try:
+        # Проверяем наличие буста
+        await cursor.execute(CHECK_BOOST_COUNT, (user_id, boost_id))
+        result = await cursor.fetchone()
+
+        if not result or result[0] <= 0:
+            return False, "❌ У вас нет этого буста"
+
+        current_count = result[0]
+
+        # Уменьшаем количество на 1
+        await cursor.execute(DEL_BOOST_UPDATE, (user_id, boost_id))
+
+        if cursor.rowcount == 0:
+            return False, "❌ Не удалось использовать буст"
+
+        # Если осталось 0 бустов, удаляем запись
+        if current_count == 1:
+            await cursor.execute(DEL_BOOST_CLEANUP, (user_id, boost_id))
+
+        remaining_count = current_count - 1
+        message = f"✅ Буст использован! Осталось: {remaining_count}"
+
+        return True, message
+
+    except Exception as e:
+        logging.error(f"Error using boost {boost_id} for user {user_id}: {e}")
+        return False, "❌ Произошла ошибка при использовании буста из инвентаря"
+
+
+def format_time_reduction(seconds: int) -> str:
+    """
+    Форматирует время в удобочитаемый вид
+    """
+    if seconds < 60:
+        return f"{seconds} сек"
+    elif seconds < 3600:
+        minutes = seconds // 60
+        remaining_seconds = seconds % 60
+        if remaining_seconds == 0:
+            return f"{minutes} мин"
+        else:
+            return f"{minutes} мин {remaining_seconds} сек"
+    else:
+        hours = seconds // 3600
+        remaining_minutes = (seconds % 3600) // 60
+        if remaining_minutes == 0:
+            return f"{hours} ч"
+        else:
+            return f"{hours} ч {remaining_minutes} мин"
+
+
+# Альтернативная версия основной функции с транзакциями
+async def update_use_boost_with_transaction(boost_info: dict, dp_pool, user_id: int):
+    """
+    Версия с явными транзакциями для большей надежности
+    """
+    try:
+        boost_id, name, time_seconds, price = boost_info.values()
+
+        if time_seconds <= 0:
+            return False, "❌ Время уменьшения должно быть положительным"
+
+        async with dp_pool.acquire() as conn:
+            # Начинаем транзакцию
+            await conn.begin()
+
+            try:
+                async with conn.cursor() as cursor:
+                    # 1. Проверяем и используем буст
+                    boost_available, boost_message = await check_and_use_boost_from_inventory(
+                        cursor, user_id, boost_id
+                    )
+
+                    if not boost_available:
+                        await conn.rollback()
+                        return False, boost_message
+
+                    # 2. Обновляем время ожидания
+                    await cursor.execute(SELECT_SCORE_FROM_STATS, (user_id,))
+                    row = await cursor.fetchone()
+
+                    if not row:
+                        await conn.rollback()
+                        return False, "❌ Пользователь не найден"
+
+                    score, last_used = row
+                    if time.time() - last_used > HOURS_12:
+                        return False, "⏳ Прошло уже больше 12 часов - буст больше не нужен!"
+                    new_last_used = last_used - time_seconds
+
+                    await cursor.execute(UPDATE_STATS_LAST_USED, (new_last_used, user_id))
+
+                    if cursor.rowcount == 0:
+                        await conn.rollback()
+                        return False, "❌ Не удалось обновить время ожидания"
+
+                    # Если всё прошло успешно, фиксируем транзакцию
+                    await conn.commit()
+
+                    time_str = format_time_reduction(time_seconds)
+                    return True, f"✅ Время ожидания уменьшено на {time_str}!"
+
+            except Exception as e:
+                await conn.rollback()
+                logging.error(f"Transaction error for user {user_id}: {e}")
+                return False, "❌ Произошла ошибка при использовании буста"
+
+    except Exception as e:
+        logging.error(f"Error in update_use_boost_with_transaction for user {user_id}: {e}")
+        return False, "❌ Произошла ошибка при использовании буста"

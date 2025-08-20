@@ -9,7 +9,7 @@ def mask_name(user_id, name):
     """Добавляет эмодзи или маску перед ником пользователя."""
     active_mask = user_active_mask.get(user_id, '')  # active_mask — строка с эмодзи
     if active_mask:
-        return f"{active_mask[0]} {name}"
+        return f"{active_mask} {name}"  # убираем [0], используем весь эмодзи
     return name
 
 

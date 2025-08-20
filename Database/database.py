@@ -53,13 +53,26 @@ MASKS = [
     {'id': 'mask19', 'price': 75, 'emoji': '🧞', 'name': 'Genie'},
     {'id': 'mask20', 'price': 50, 'emoji': '👻', 'name': 'Ghost'}
 ]
+MINUTES_30 = 1800  # 30 минут
+HOURS_1 = 3600  # 1 час
+HOURS_2 = 7200  # 2 часа
+HOURS_3 = 10800  # 3 часа
+HOURS_4 = 14400  # 4 часа
+HOURS_6 = 21600  # 6 часов
+HOURS_8 = 28800  # 8 часов
+HOURS_10 = 36000  # 10 часов
+HOURS_12 = 43200  # 12 часов
+
+# Бусты с временем в секундах (для консистентности)
 BOOSTS = [
-    {"id": "boost1", "name": "Speed 30m", "time": 30, "price": 5},  # 30 мин
-    {"id": "boost2", "name": "Speed 1h", "time": 60, "price": 10},  # 1 час
-    {"id": "boost3", "name": "Speed 2h", "time": 120, "price": 20},  # 2 часа
-    {"id": "boost4", "name": "Speed 4h", "time": 240, "price": 40},  # 4 часа
-    {"id": "boost5", "name": "Speed 6h", "time": 360, "price": 60},  # 6 часов
-    {"id": "boost6", "name": "Speed 8h", "time": 480, "price": 80},  # 8 часов
-    {"id": "boost7", "name": "Speed 10h", "time": 600, "price": 100},  # 10 часов
-    {"id": "boost8", "name": "Speed 12h", "time": 720, "price": 120},  # 12 часов
+    {"id": "boost1", "name": "Speed 30m", "time": MINUTES_30, "price": 5},  # 30 мин
+    {"id": "boost2", "name": "Speed 1h", "time": HOURS_1, "price": 10},  # 1 час
+    {"id": "boost3", "name": "Speed 2h", "time": HOURS_2, "price": 20},  # 2 часа
+    {"id": "boost4", "name": "Speed 4h", "time": HOURS_4, "price": 40},  # 4 часа
+    {"id": "boost5", "name": "Speed 6h", "time": HOURS_6, "price": 60},  # 6 часов
+    {"id": "boost6", "name": "Speed 8h", "time": HOURS_8, "price": 80},  # 8 часов
+    {"id": "boost7", "name": "Speed 10h", "time": HOURS_10, "price": 100},  # 10 часов
+    {"id": "boost8", "name": "Speed 12h", "time": HOURS_12, "price": 120},  # 12 часов
 ]
+BOOSTS_MAP = {b["id"]: b for b in BOOSTS}
+
