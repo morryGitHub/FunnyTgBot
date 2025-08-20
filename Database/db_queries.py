@@ -118,3 +118,8 @@ CHECK_BOOST_COUNT = """
     SELECT count FROM UsersBoosts 
     WHERE user_id = %s AND boost_id = %s;
 """
+
+UPDATE_USER_ACTIVE = """
+    UPDATE Users SET active = %s WHERE user_id = %s
+"""
+

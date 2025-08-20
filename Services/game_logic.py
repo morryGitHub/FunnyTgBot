@@ -6,7 +6,7 @@ import asyncio
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest, TelegramAPIError
-from aiogram.types import Message
+from aiogram.types import Message, TelegramObject
 from aiomysql import Pool, DictCursor
 
 from Database.database import user_chat_messages, MASKS, BOOSTS, HOURS_12, HOURS_3
@@ -427,3 +427,10 @@ async def update_use_boost_with_transaction(boost_info: dict, dp_pool, user_id: 
     except Exception as e:
         logging.error(f"Error in update_use_boost_with_transaction for user {user_id}: {e}")
         return False, "❌ Произошла ошибка при использовании буста"
+
+
+async def update_user_active(dp_pool: Pool, event: TelegramObject):
+    async with dp_pool.acquire() as conn:
+        async with conn.cursor() as cursor:
+            await cursor.execute(UPDATE_USER_ACTIVE, (0, event.from_user.id))
+            logging.info(f'Пользователь {event.from_user.id} заблокировал бота')

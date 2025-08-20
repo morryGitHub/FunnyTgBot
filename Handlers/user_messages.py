@@ -1,14 +1,14 @@
 from aiogram import Router, Bot
-from aiogram.filters import Command, or_f, CommandStart
+from aiogram.filters import Command, or_f, CommandStart, ChatMemberUpdatedFilter, KICKED
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
+from aiogram.types import Message, ChatMemberUpdated
 from aiomysql import Pool
 
 from Database.database import user_active_mask
 from FSM.Shop import ShopStates
 from Keyboards.user_kb import mask_kb, inventory_section_kb
 from Services.game_logic import get_balance, get_scores, calculate_new_growth, game_dice, gather_all_items, \
-    get_my_masks, get_my_boosts
+    get_my_masks, get_my_boosts, update_user_active
 from Services.view_logic import view_table
 
 user_messages = Router()
@@ -114,3 +114,8 @@ async def handle_inventory(message: Message, dp_pool, full_name, user_id):
     await message.answer(
         f'<i><a href="tg://user?id={user_id}">{full_name}</a> открывает свой 🧳Чемодан:\nБаланс: {balance} 🪙\nМаска: {active_mask}\n\nВыбери стильную маску, чтобы она отображалась рядом с твоим именем в рейтинге. Покажи свой уникальный образ!</i>',
         parse_mode="HTML", reply_markup=kb)
+
+
+@user_messages.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=KICKED))
+async def process_user_blocked_bot(event: ChatMemberUpdated, dp_pool: Pool):
+    await update_user_active(dp_pool, event)
