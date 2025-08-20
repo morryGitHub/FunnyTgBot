@@ -8,7 +8,7 @@ from aiogram.types import TelegramObject
 from aiomysql import Pool, Cursor
 
 from Database.db_queries import CHECK_USER_CHAT_EXISTS, INSERT_USER_INTO_USERS, INSERT_USER_INTO_STATS, \
-    INSERT_USER_INTO_UsersChats
+    INSERT_USER_INTO_UsersChats, UPDATE_USER_ACTIVE_UNBAN
 
 
 class DbMiddleware(BaseMiddleware):
@@ -25,21 +25,34 @@ class CheckUserMiddleware(BaseMiddleware):
         self.pool: Pool = pool
 
     async def __call__(self, handler: Callable[[TelegramObject, dict], Any], event: TelegramObject, data: dict):
-        # Попытка получить пользователя из event
-        user = getattr(event, 'from_user', None)
-        chat = getattr(event, 'chat', None)
+        user = None
+        chat = None
+        is_active = None
 
-        if not user and hasattr(event, 'message'):
-            user = getattr(event.message, 'from_user', None)
-            chat = getattr(event.message, 'chat', None)
-
-        if not user and hasattr(event, 'callback_query'):
-            user = getattr(event.callback_query, 'from_user', None)
-            chat = getattr(event.callback_query.message, 'chat', None)
+        if hasattr(event, "from_user") and event.from_user:
+            user = event.from_user
+            chat = event.chat
+        elif hasattr(event, "message") and event.message and event.message.from_user:
+            user = event.message.from_user
+            chat = event.message.chat
+        elif hasattr(event, "callback_query") and event.callback_query and event.callback_query.from_user:
+            user = event.callback_query.from_user
+            chat = event.callback_query.message.chat
+        elif hasattr(event, "my_chat_member") and event.my_chat_member:
+            # Если статус не kicked/left, считаем активным
+            user = event.my_chat_member.from_user
+            chat = event.my_chat_member.chat
+            new_status = event.my_chat_member.new_chat_member.status
+            is_active = 0 if new_status in ("kicked", "left") else 1
+            logging.info(f"User {user.id} status changed → {new_status} (active={is_active})")
+        elif user is None:
+            # Просто пропускаем или логируем
+            logging.warning("Нет from_user в событии, пропускаем middleware")
+            return await handler(event, data)
 
         username = user.username or "Unknown"
-        user_id = user.id
-        chat_id = chat.id
+        user_id = user.id or 'None'
+        chat_id = chat.id or 'None'
         full_name = user.full_name or "Unknown"
         now = int(time.time())  # текущее время в секундах
         data["user_id"] = user_id
@@ -69,10 +82,9 @@ class CheckUserMiddleware(BaseMiddleware):
                     # Добавляем связь user-chat
                     await cursor.execute(INSERT_USER_INTO_UsersChats, (user_id, chat_id))
                     message = event.message or event.callback_query.message
-                    # await language_handle(message)
-                # await cursor.execute(SELECT_USER_ACTIVITY, user_id)
-                # (active,) = await cursor.fetchone()
-                # if active == 0:
-                #     await cursor.execute(UPDATE_USER_ACTIVE, (1, user_id))
+
+                elif is_active:
+                    await cursor.execute(UPDATE_USER_ACTIVE_UNBAN, (1, user_id))
+                    logging.info(f'Пользователь {user_id} разблокировал бота')
 
         return await handler(event, data)

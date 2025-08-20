@@ -13,7 +13,7 @@ from Database.database import user_chat_messages, MASKS, BOOSTS, HOURS_12, HOURS
 from Database.db_queries import SELECT_COIN_FROM_STATS, SELECT_ALL_SCORES, SELECT_ALL_SCORES_FROM_CHAT, \
     UPDATE_AFTER_DICE, SELECT_SCORE_FROM_STATS, UPDATE_STATS_SCORE_TIME, UPDATE_STATS_COIN, SELECT_TIMES_FROM_STATS, \
     ADD_NEW_MASK, SELECT_MASKS_FOR_USER, ADD_NEW_BOOST, SELECT_BOOSTS_FOR_USER, UPDATE_STATS_LAST_USED, \
-    CHECK_BOOST_COUNT, DEL_BOOST_UPDATE, DEL_BOOST_CLEANUP
+    CHECK_BOOST_COUNT, DEL_BOOST_UPDATE, DEL_BOOST_CLEANUP, UPDATE_USER_ACTIVE
 
 
 async def custom_randint():
@@ -434,3 +434,4 @@ async def update_user_active(dp_pool: Pool, event: TelegramObject):
         async with conn.cursor() as cursor:
             await cursor.execute(UPDATE_USER_ACTIVE, (0, event.from_user.id))
             logging.info(f'Пользователь {event.from_user.id} заблокировал бота')
+

@@ -123,3 +123,6 @@ UPDATE_USER_ACTIVE = """
     UPDATE Users SET active = %s WHERE user_id = %s
 """
 
+UPDATE_USER_ACTIVE_UNBAN = """
+    UPDATE Users SET active = %s WHERE user_id = %s
+"""
