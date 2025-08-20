@@ -26,15 +26,16 @@ async def start_handler(message: Message):
 @user_messages.message(Command('help'))
 async def help_command(message: Message):
     commands_text = """
-<b>/start</b> – Начать игру
-<b>/dick</b> – Увеличить свой размер случайным образом 😏
-<b>/game</b> – Мини-игра, чтобы сократить время ожидания
-<b>/show_global_top</b> – Топ игроков
-<b>/show_chat_top</b> – Лидеры этого чата
-<b>/buy_mask</b> – Купить маску за монеты 🎭
-<b>/buy_boost</b> – Купить буст: ускорение, бонусы и т.д. ⚡
-<b>/show_mask</b> – Посмотреть, какие маски у тебя есть
-<b>/show_boosts</b> – Посмотреть доступные бусты
+<b>/start</b> – Start the game 🎮  
+<b>/dick</b> – Increase your size randomly 😏  
+<b>/game</b> – Play a mini-game to reduce cooldown ⏳  
+<b>/global_top</b> – View the global leaderboard 🌍  
+<b>/chat_top</b> – View the top players in this chat 💬  
+<b>/shop</b> – Open the shop: buy masks & boosts 🏪  
+<b>/balance</b> – Check your coin balance 💰  
+<b>/profile</b> – Show all your masks 🎭  
+<b>/inventory</b> – Manage and equip boosts/masks 🎒  
+
 """
     await message.answer(commands_text, parse_mode="HTML")
 
@@ -55,13 +56,13 @@ async def grow_penis(message: Message, bot: Bot, dp_pool: Pool, chat_id: int, us
                                now=now)
 
 
-@user_messages.message(Command("show_global_top"))
+@user_messages.message(Command("global_top"))
 async def show_global_top(message: Message, dp_pool: Pool):
     rows = await get_scores(dp_pool)
     await view_table(message, rows)
 
 
-@user_messages.message(Command("show_chat_top"))
+@user_messages.message(Command("chat_top"))
 async def show_global_top(message: Message, dp_pool: Pool, chat_id: int):
     rows = await get_scores(dp_pool, chat_id)
     await view_table(message, rows)
@@ -95,11 +96,11 @@ async def handle_shop(message: Message, dp_pool: Pool, user_id: int, state: FSMC
 
 
 @user_messages.message(Command("profile"))
-async def handle_shop(message: Message, dp_pool, user_id, username):
+async def handle_shop(message: Message, dp_pool, user_id, full_name):
     suitcase = await gather_all_items(dp_pool, user_id)
     await message.answer(
-        f'<a href="tg://user?id={user_id}">{username}</a> открывает свой 🧳Чемодан:\n\n'
-        f'Маски:  {suitcase or "пусто 😢"}',
+        f'<i><a href="tg://user?id={user_id}">{full_name}</a> открывает свой 🧳Чемодан:\n\n'
+        f'Маски:  {suitcase or "пусто 😢"}</i>',
         parse_mode="HTML"
     )
 
