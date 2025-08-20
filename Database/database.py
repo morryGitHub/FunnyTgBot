@@ -51,8 +51,14 @@ MASKS = [
     {'id': 'mask17', 'price': 85, 'emoji': '🦸', 'name': 'Superhero'},
     {'id': 'mask18', 'price': 65, 'emoji': '🧙', 'name': 'Wizard'},
     {'id': 'mask19', 'price': 75, 'emoji': '🧞', 'name': 'Genie'},
-    {'id': 'mask20', 'price': 50, 'emoji': '👻', 'name': 'Ghost'}
+    {'id': 'mask20', 'price': 50, 'emoji': '👻', 'name': 'Ghost'},
+    {'id': 'mask21', 'price': 15, 'emoji': '🤿', 'name': 'Diver'},
+    {'id': 'mask22', 'price': 25, 'emoji': '🎰', 'name': 'Gambler'},
+    {'id': 'mask23', 'price': 50, 'emoji': '🎧', 'name': 'DJ'},
+    {'id': 'mask24', 'price': 80, 'emoji': '🀄', 'name': 'Mahjong'},
+    {'id': 'mask25', 'price': 100, 'emoji': '🪬', 'name': 'Mystic'}
 ]
+
 MINUTES_30 = 1800  # 30 минут
 HOURS_1 = 3600  # 1 час
 HOURS_2 = 7200  # 2 часа
@@ -75,4 +81,3 @@ BOOSTS = [
     {"id": "boost8", "name": "Speed 12h", "time": HOURS_12, "price": 120},  # 12 часов
 ]
 BOOSTS_MAP = {b["id"]: b for b in BOOSTS}
-
