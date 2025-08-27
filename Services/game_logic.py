@@ -13,7 +13,7 @@ from Database.database import user_chat_messages, MASKS, BOOSTS, HOURS_12, HOURS
 from Database.db_queries import SELECT_COIN_FROM_STATS, SELECT_ALL_SCORES, SELECT_ALL_SCORES_FROM_CHAT, \
     UPDATE_AFTER_DICE, SELECT_SCORE_FROM_STATS, UPDATE_STATS_SCORE_TIME, UPDATE_STATS_COIN, SELECT_TIMES_FROM_STATS, \
     ADD_NEW_MASK, SELECT_MASKS_FOR_USER, ADD_NEW_BOOST, SELECT_BOOSTS_FOR_USER, UPDATE_STATS_LAST_USED, \
-    CHECK_BOOST_COUNT, DEL_BOOST_UPDATE, DEL_BOOST_CLEANUP, UPDATE_USER_ACTIVE
+    CHECK_BOOST_COUNT, DEL_BOOST_UPDATE, DEL_BOOST_CLEANUP, UPDATE_USER_ACTIVE, SELECT_ACTIVE_MASK, UPDATE_ACTIVE_MASK
 
 
 async def custom_randint():
@@ -261,6 +261,35 @@ async def save_boost_into_db(dp_pool: Pool, user_id: int, boost_id: str):
 #                 await conn.rollback()  # откатываем при ошибке
 #                 raise
 
+def get_mask_emoji(mask_id: str | None, masks_list: list) -> str:
+    """Получает эмодзи маски по ID"""
+    if not mask_id:
+        return ""
+
+    matching = next((m for m in masks_list if m['id'] == mask_id), None)
+    return matching.get("emoji", "❔") if matching else "❔"
+
+
+def find_mask_by_id(mask_id: str, masks_list: list) -> dict | None:
+    """Находит маску по ID в списке масок"""
+    return next((m for m in masks_list if m['id'] == mask_id), None)
+
+
+async def get_active_mask_from_db(dp_pool: Pool, user_id: int):
+    async with dp_pool.acquire() as conn:
+        async with conn.cursor(DictCursor) as cursor:
+            await cursor.execute(SELECT_ACTIVE_MASK, (user_id,))
+            row = await cursor.fetchall()
+            mask_id = row[0]['active_mask']
+            return get_mask_emoji(masks_list=MASKS, mask_id=mask_id)
+
+
+async def update_active_mask(dp_pool, mask_id, user_id):
+    # Сохраняем активную маску в БД
+    async with dp_pool.acquire() as conn:
+        async with conn.cursor() as cursor:
+            await cursor.execute(UPDATE_ACTIVE_MASK, (mask_id, user_id))
+
 
 async def get_my_masks(dp_pool, user_id):
     async with dp_pool.acquire() as conn:
@@ -434,4 +463,3 @@ async def update_user_active(dp_pool: Pool, event: TelegramObject):
         async with conn.cursor() as cursor:
             await cursor.execute(UPDATE_USER_ACTIVE, (0, event.from_user.id))
             logging.info(f'Пользователь {event.from_user.id} заблокировал бота')
-

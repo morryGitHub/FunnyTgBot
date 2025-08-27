@@ -1,22 +1,24 @@
 import logging
 
 from aiogram.types import Message
+from aiomysql import Pool
 
 from Database.database import user_active_mask
+from Services.game_logic import get_active_mask_from_db
 
 
-def mask_name(user_id, name):
+async def mask_name(dp_pool, user_id, name):
     """Добавляет эмодзи или маску перед ником пользователя."""
-    active_mask = user_active_mask.get(user_id, '')  # active_mask — строка с эмодзи
+    active_mask = await get_active_mask_from_db(dp_pool, user_id)
     if active_mask:
         return f"{active_mask} {name}"  # убираем [0], используем весь эмодзи
     return name
 
 
-async def view_table(message: Message, rows):
+async def view_table(message: Message, rows, dp_pool):
     if rows:
         # masked_rows — если хочешь, можно применить mask_name к никнеймам
-        masked_rows = [(mask_name(row[0], row[1]), row[2]) for row in rows]
+        masked_rows = [(await mask_name(dp_pool, row[0], row[1]), row[2]) for row in rows]
         logging.debug(masked_rows)
         await message.answer(f"📝 <b>🏆 Hall of Fame: </b>\n\n{show_table(masked_rows)}", parse_mode='HTML')
     else:

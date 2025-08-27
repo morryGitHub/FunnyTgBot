@@ -126,3 +126,13 @@ UPDATE_USER_ACTIVE = """
 UPDATE_USER_ACTIVE_UNBAN = """
     UPDATE Users SET active = %s WHERE user_id = %s
 """
+
+SELECT_ACTIVE_MASK = """
+    SELECT active_mask
+    FROM Stats 
+    WHERE user_id = %s
+"""
+
+UPDATE_ACTIVE_MASK = """
+    UPDATE Stats SET active_mask = %s WHERE user_id = %s
+"""

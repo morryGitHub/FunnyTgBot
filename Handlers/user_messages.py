@@ -4,11 +4,10 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ChatMemberUpdated
 from aiomysql import Pool
 
-from Database.database import user_active_mask
 from FSM.Shop import ShopStates
 from Keyboards.user_kb import mask_kb, inventory_section_kb
 from Services.game_logic import get_balance, get_scores, calculate_new_growth, game_dice, gather_all_items, \
-    get_my_masks, get_my_boosts, update_user_active
+    get_my_masks, update_user_active, get_active_mask_from_db
 from Services.view_logic import view_table
 
 user_messages = Router()
@@ -57,15 +56,15 @@ async def grow_penis(message: Message, bot: Bot, dp_pool: Pool, chat_id: int, us
 
 
 @user_messages.message(Command("global_top"))
-async def show_global_top(message: Message, dp_pool: Pool):
+async def show_global_top(message: Message, dp_pool: Pool, user_id):
     rows = await get_scores(dp_pool)
-    await view_table(message, rows)
+    await view_table(message, rows, dp_pool)
 
 
 @user_messages.message(Command("chat_top"))
 async def show_global_top(message: Message, dp_pool: Pool, chat_id: int):
     rows = await get_scores(dp_pool, chat_id)
-    await view_table(message, rows)
+    await view_table(message, rows, dp_pool)
 
 
 @user_messages.message(Command("game"))
@@ -79,20 +78,13 @@ async def handle_dice(message: Message, bot: Bot, dp_pool: Pool, user_id: int, c
 
 
 @user_messages.message(Command("shop"))
-async def handle_shop(message: Message, dp_pool: Pool, user_id: int, state: FSMContext):
-    await message.answer(f"🏪<i>Магазин</i>: {await get_balance(dp_pool=dp_pool, user_id=user_id)} 🪙\n"
-                         f"<i>Выберите раздел магазина:<b> Маски | Ускорение </b></i>", parse_mode="HTML",
-                         reply_markup=mask_kb(page=1))  # ✅ вызываем функцию
+async def handle_shop(msg: Message, bot: Bot, dp_pool: Pool, user_id: int, state: FSMContext):
+    await bot.send_message(
+        chat_id=user_id,
+        text=f"🏪<i>Магазин</i>: {await get_balance(dp_pool=dp_pool, user_id=user_id)} 🪙\n"
+             f"<i>Выберите раздел магазина:<b> Маски | Ускорение </b></i>", parse_mode="HTML",
+        reply_markup=mask_kb(page=1))
     await state.set_state(ShopStates.main)
-
-    # try:
-    #     # Попробуем отредактировать старое сообщение с новым контентом и клавиатурой
-    #     bot.edit_message_text("Welcome to the Shop! Choose a mask to buy:", chat_id=message.chat.id,
-    #                           message_id=message.message_id, reply_markup=markup)
-    # except Exception as e:
-    #     # Если редактирование не удалось, отправим новое сообщение
-    #     print(f"Error editing message: {e}")
-    #     bot.send_message(message.chat.id, "Welcome to the Shop! Choose a mask to buy:", reply_markup=markup)
 
 
 @user_messages.message(Command("profile"))
@@ -109,11 +101,17 @@ async def handle_shop(message: Message, dp_pool, user_id, full_name):
 async def handle_inventory(message: Message, dp_pool, full_name, user_id):
     masks = await get_my_masks(dp_pool, user_id)
     balance = await get_balance(dp_pool, user_id)
-    active_mask = user_active_mask.get(user_id, '🚫')
+    active_mask = await get_active_mask_from_db(dp_pool, user_id)
     kb = inventory_section_kb(masks, "Маски", is_mask=True, user_id=user_id)
     await message.answer(
         f'<i><a href="tg://user?id={user_id}">{full_name}</a> открывает свой 🧳Чемодан:\nБаланс: {balance} 🪙\nМаска: {active_mask}\n\nВыбери стильную маску, чтобы она отображалась рядом с твоим именем в рейтинге. Покажи свой уникальный образ!</i>',
         parse_mode="HTML", reply_markup=kb)
+
+
+# @user_messages.message(Command('m'))
+# async def my_mask(msg: Message, dp_pool, user_id):
+#     a = await get_active_mask_from_db(dp_pool, user_id)
+#     await msg.answer(f'{a}')
 
 
 @user_messages.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=KICKED))
