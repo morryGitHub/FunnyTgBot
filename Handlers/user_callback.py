@@ -247,4 +247,6 @@ async def handle_inventory(callback: CallbackQuery, dp_pool, username, user_id):
 async def handle_callback_balance(callback: CallbackQuery, dp_pool, full_name, user_id):
     balance = await get_balance(dp_pool, user_id)
     await callback.answer(
-        f"{full_name}, баланс: {balance} 🪙")
+        f"{full_name}, баланс: {balance} 🪙",
+        show_alert=True
+    )

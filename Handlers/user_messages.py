@@ -162,13 +162,3 @@ async def process_user_blocked_bot(event: ChatMemberUpdated, dp_pool: Pool):
     await update_user_active(dp_pool, event)
 
 
-@user_messages.message(Command("spam"))
-async def spam(mes: Message, bot: Bot):
-    await bot.send_message(
-        chat_id=1748263745,
-        text="У тебя маска снялась, теперь она хранится в дб и не будет исчезать при каждой обнове)"
-    )
-    await bot.send_message(
-        chat_id=6818396490,
-        text="У тебя маска снялась, теперь она хранится в дб и не будет исчезать при каждой обнове)"
-    )
