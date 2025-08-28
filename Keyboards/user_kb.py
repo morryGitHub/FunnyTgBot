@@ -1,4 +1,3 @@
-import logging
 import math
 from typing import List, Dict, Optional
 from dataclasses import dataclass
@@ -54,7 +53,7 @@ class ShopKeyboardBuilder:
     @staticmethod
     def calculate_pagination(items: List, page: int, items_per_page: int) -> PaginationInfo:
         """Calculate pagination details for any list of items"""
-        total_pages = math.ceil(len(items) / items_per_page)
+        total_pages = max(1, math.ceil(len(items) / items_per_page))
         start_index = (page - 1) * items_per_page
         end_index = start_index + items_per_page
 
@@ -84,6 +83,7 @@ class ShopKeyboardBuilder:
                     callback_data=f"{callback_prefix}:{pagination.total_pages}:{active_category}"
                 )
             )
+
         else:
             navigation.append(
                 InlineKeyboardButton(
@@ -128,20 +128,20 @@ class ShopKeyboardBuilder:
         buttons = []
 
         mask_btn = InlineKeyboardButton(
-            text=f"{ShopConfig.SEARCH_EMOJI} Masks" if mask_active else "Masks",
+            text=f"{ShopConfig.SEARCH_EMOJI} Маски" if mask_active else "Маски",
             callback_data="nothing" if mask_active else f"category:{Category.MASKS.value}"
         )
         buttons.append(mask_btn)
 
         boost_btn = InlineKeyboardButton(
-            text=f"{ShopConfig.SEARCH_EMOJI} Boosts" if boost_active else "Boosts",
+            text=f"{ShopConfig.SEARCH_EMOJI} Бусты" if boost_active else "Бусты",
             callback_data="nothing" if boost_active else f"category:{Category.BOOSTS.value}"
         )
         buttons.append(boost_btn)
 
         if include_inventory:
             inventory_btn = InlineKeyboardButton(
-                text=f"{ShopConfig.SEARCH_EMOJI} Inventory" if inventory_active else "Inventory",
+                text=f"{ShopConfig.SEARCH_EMOJI} Чемодан" if inventory_active else "Чемодан",
                 callback_data="nothing" if inventory_active else f"category:{Category.INVENTORY.value}"
             )
             buttons.append(inventory_btn)
@@ -267,7 +267,10 @@ class InventoryKeyboard:
     """Keyboard builder for user inventory"""
 
     @staticmethod
-    def build_boost_inventory(user_boosts: List[Dict], page: int = 1) -> InlineKeyboardMarkup:
+    def build_boost_inventory(
+            user_boosts: List[Dict],
+            page: int = 1
+    ) -> InlineKeyboardMarkup:
         """Build inventory keyboard for user boosts"""
         buttons = []
 
@@ -302,7 +305,6 @@ class InventoryKeyboard:
 
         # Create boost buttons
         for boost in page_items:
-            logging.debug(boost)
             boost_id = boost["boost_id"]
             name = boost["name"]
             time_seconds = boost["time"]
@@ -322,7 +324,7 @@ class InventoryKeyboard:
         # Add navigation if needed
         if pagination.total_pages > 1:
             navigation_row = ShopKeyboardBuilder.create_navigation_row(
-                pagination, "inventory", "inventory_page"
+                pagination, "Чемодан", "inventory_page"
             )
             buttons.append(navigation_row)
 
@@ -460,7 +462,6 @@ async def show_category(
     # Handle inventory category
     if category == Category.INVENTORY.value:
         # Показываем маски в инвентаре
-        logging.info(f"user_masks: {user_masks}")
 
         if user_masks and len(user_masks) > 0:
 
@@ -493,7 +494,16 @@ async def show_category(
         keyboard = builder(page, category)
         text = (
             f"🏪<i>Магазин</i>: {balance} 🪙\n"
-            f"<i>Выберите раздел магазина:<b> Маски | Ускорение | Инвентарь</b></i>"
+            f"<i>Выберите раздел магазина:<b> Маски | Ускорение | Чемодан </b></i>"
         )
 
     await message.edit_text(text, reply_markup=keyboard)
+
+
+def kb_get_balance():
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Проверить баланс 🔎", callback_data='get_balance')]
+        ]
+    )
+    return kb

@@ -1,3 +1,5 @@
+import logging
+
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
@@ -10,6 +12,11 @@ from Services.game_logic import get_balance, set_balance, save_mask_into_db, sav
     get_my_boosts, update_use_boost_with_transaction, get_active_mask_from_db, update_active_mask
 
 user_callback = Router()
+
+
+# @user_callback.callback_query()
+# async def catch_all_callbacks(callback: CallbackQuery):
+#     logging.info(f"Caught callback: {callback.data}")
 
 
 @user_callback.callback_query(F.data.startswith("category:"))
@@ -127,6 +134,24 @@ async def pagination(callback: CallbackQuery):
         await callback.message.edit_reply_markup(reply_markup=kb)
 
 
+@user_callback.callback_query(F.data.startswith("inventory_page:"))
+async def inventory_page_callback(callback: CallbackQuery, dp_pool, user_id):
+    # callback.data = "inventory_page:2:Чемодан"
+    parts = callback.data.split(":")
+    page = int(parts[1])
+    title = parts[2]
+
+    user_boosts = await get_my_boosts(dp_pool, user_id)  # твоя функция получения бустов
+
+    # Перестраиваем клавиатуру для новой страницы
+    keyboard = InventoryKeyboard.build_boost_inventory(user_boosts, page=page)
+
+    # Редактируем сообщение с новой клавиатурой
+    await callback.message.edit_reply_markup(reply_markup=keyboard)
+
+    await callback.answer()  # чтобы убрать "часики" на кнопке
+
+
 @user_callback.callback_query(F.data == "nothing")
 async def nothing(callback: CallbackQuery):
     await callback.answer()
@@ -216,3 +241,10 @@ async def handle_inventory(callback: CallbackQuery, dp_pool, username, user_id):
     await callback.message.answer(
         f'<i><a href="tg://user?id={user_id}">{username}</a> открывает свой 🧳Чемодан:\nБаланс: {balance} 🪙\nМаска: {active_mask}\n\nВыбери стильную маску, чтобы она отображалась рядом с твоим именем в рейтинге. Покажи свой уникальный образ!</i>',
         parse_mode="HTML", reply_markup=kb)
+
+
+@user_callback.callback_query(F.data.startswith('get_'))
+async def handle_callback_balance(callback: CallbackQuery, dp_pool, full_name, user_id):
+    balance = await get_balance(dp_pool, user_id)
+    await callback.answer(
+        f"{full_name}, баланс: {balance} 🪙")
